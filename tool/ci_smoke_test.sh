@@ -20,6 +20,14 @@ PID=$(adb shell pidof "$PKG" | tr -d '\r')
 adb logcat -d > logcat.txt
 echo "---- crash / flutter log ----"
 grep -E "FATAL|AndroidRuntime|E flutter|I flutter|Exception|Error|DEBUG   :|signal [0-9]+" logcat.txt | grep -v "GoogleApiManager\|chromium" | tail -150
+if grep -q "FATAL EXCEPTION" logcat.txt && grep -A2 "FATAL EXCEPTION" logcat.txt | grep -q "$PKG"; then
+  echo "::error::App crashed (FATAL EXCEPTION in logcat)"
+  exit 1
+fi
+if adb shell dumpsys window | grep -q "Application Error: $PKG"; then
+  echo "::error::App crashed (crash dialog is showing)"
+  exit 1
+fi
 if [ -z "$PID" ]; then
   echo "::error::App is not running after launch (crashed)"
   exit 1

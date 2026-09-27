@@ -100,8 +100,9 @@ jobs:
           path: FloppySwing-unsigned.ipa
 
   release:
-    needs: [android, ios]
-    if: always() && needs.android.result == 'success'
+    needs: [android, android-smoke-test, ios]
+    # Only publish builds that launched on the emulator without crashing.
+    if: always() && needs.android-smoke-test.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
