@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'autopilot.dart';
 import 'config.dart';
+import 'course_builder.dart';
 import 'level.dart';
 import 'ragdoll.dart';
 import 'renderer.dart';
@@ -26,6 +27,29 @@ enum GamePhase {
   /// Fail panel is showing. Any tap retries.
   failed,
   won,
+}
+
+/// How a level is being played.
+enum PlayMode {
+  campaign,
+
+  /// Today's challenge: no revives, so scores stay fair.
+  daily,
+
+  /// One long generated course until you fail. No revives either.
+  endless,
+}
+
+/// Score for an Endless run.
+class EndlessResult {
+  const EndlessResult({required this.distance, required this.style, required this.coins});
+
+  /// Metres travelled from the start.
+  final int distance;
+  final int style;
+  final int coins;
+
+  int get score => distance + style;
 }
 
 /// Receives gameplay events for audio and haptics.
@@ -70,13 +94,15 @@ class GameController extends ChangeNotifier {
     required this.cfg,
     required Skin skin,
     this.feedback,
-  }) : renderer = WorldRenderer(level, skin),
+    this.mode = PlayMode.campaign,
+  }) : renderer = WorldRenderer(level, skin, endless: mode == PlayMode.endless),
        _skin = skin {
     _newSim(Simulation(level, cfg));
   }
 
   final Level level;
   final PhysicsConfig cfg;
+  final PlayMode mode;
   final WorldRenderer renderer;
   GameFeedback? feedback;
   Skin _skin;
@@ -99,6 +125,17 @@ class GameController extends ChangeNotifier {
   int attempts = 1;
   bool revived = false;
   RunResult? result;
+
+  /// Endless: the run's score, set when it ends.
+  EndlessResult? endlessResult;
+
+  /// Endless: furthest distance (metres) this run.
+  double distance = 0;
+
+  /// Endless: world whose look and mechanics the player is in, and when
+  /// they entered it (wall clock), for the zone banner and music.
+  int zoneWorld = 1;
+  double zoneEnteredAt = -10;
 
   /// Seconds of history kept for replays and clip export.
   static const historySeconds = 8.0;
@@ -194,11 +231,16 @@ class GameController extends ChangeNotifier {
     attempts++;
     revived = false;
     result = null;
+    endlessResult = null;
+    distance = 0;
+    zoneWorld = 1;
+    zoneEnteredAt = -10;
     _newSim(Simulation(level, cfg));
     _setPhase(GamePhase.ready);
   }
 
   bool get canRevive =>
+      mode == PlayMode.campaign &&
       (phase == GamePhase.failed || phase == GamePhase.replay || phase == GamePhase.dying) &&
       sim.lastCheckpoint >= 0;
 
@@ -215,8 +257,8 @@ class GameController extends ChangeNotifier {
         cfg,
         spawn: P(c.x, c.y - 2.2),
         runTimeOffset: old.runTime,
-        collectedCoins: old.collectedCoinsMask,
-        reachedCheckpoints: old.reachedCheckpointsMask,
+        collectedCoins: old.collectedCoins,
+        reachedCheckpoints: old.reachedCheckpoints,
         styleScore: old.styleScore,
       )..lastCheckpoint = cp,
     );
@@ -285,6 +327,13 @@ class GameController extends ChangeNotifier {
       final e = evs[_eventCursor++];
       feedback?.onEvent(e, _skin);
       if (e.kind == EventKind.death && phase != GamePhase.dying) {
+        if (mode == PlayMode.endless) {
+          endlessResult = EndlessResult(
+            distance: distance.floor(),
+            style: sim.styleScore.round(),
+            coins: sim.coinCount,
+          );
+        }
         _deathSimTime = e.t;
         _replayCam = Cam(e.x, e.y - 0.5, 7);
         _setPhase(GamePhase.dying);
@@ -301,6 +350,18 @@ class GameController extends ChangeNotifier {
       }
     }
     if (phase == GamePhase.ready && sim.startedAt != null) _setPhase(GamePhase.playing);
+    if (mode == PlayMode.endless && phase == GamePhase.playing) _trackEndless();
+  }
+
+  void _trackEndless() {
+    final x = sim.ragdoll.torso.position.x;
+    distance = math.max(distance, x - level.start.x);
+    final w = CourseBuilder.endlessWorld(x);
+    if (w != zoneWorld) {
+      zoneWorld = w;
+      zoneEnteredAt = wallTime;
+      notifyListeners();
+    }
   }
 
   void _updateCamera(double dt) {

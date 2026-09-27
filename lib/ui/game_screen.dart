@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../app.dart';
+import '../game/course_builder.dart';
 import '../game/floppy_game.dart';
 import '../game/game_controller.dart';
+import '../game/level.dart';
 import '../game/simulation.dart';
 import '../game/skins.dart';
 import '../game/worlds.dart';
@@ -17,8 +19,18 @@ import 'theme.dart';
 import 'widgets.dart';
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key, required this.levelId});
+  const GameScreen({super.key, required this.levelId}) : mode = PlayMode.campaign, day = 0, seed = 0;
+
+  /// Today's Daily Challenge ([day] from [dayNumber]).
+  const GameScreen.daily({super.key, required this.day}) : mode = PlayMode.daily, levelId = 0, seed = 0;
+
+  /// An Endless course generated from [seed].
+  const GameScreen.endless({super.key, required this.seed}) : mode = PlayMode.endless, levelId = 0, day = 0;
+
+  final PlayMode mode;
   final int levelId;
+  final int day;
+  final int seed;
 
   /// The most recently created controller, for widget tests.
   @visibleForTesting
@@ -37,6 +49,8 @@ class _GameScreenState extends State<GameScreen> {
   int _lastAttempt = 0;
   bool _showWin = false;
   LevelReward? _reward;
+  ModeReward? _modeReward;
+  int _lastZone = 1;
   bool _doubled = false;
   bool _exporting = false;
   double _exportProgress = 0;
@@ -49,13 +63,19 @@ class _GameScreenState extends State<GameScreen> {
     super.didChangeDependencies();
     if (_controller != null) return;
     _services = AppServices.of(context);
-    final level = _services.levelById(widget.levelId)!;
+    final level = switch (widget.mode) {
+      PlayMode.campaign => _services.levelById(widget.levelId)!,
+      PlayMode.daily => _services.dailyFor(widget.day)!,
+      PlayMode.endless => Level.fromJson(CourseBuilder.endless(widget.seed).buildEndless()),
+    };
     _controller = GameController(
       level: level,
       cfg: _services.physics,
       skin: skinById(_services.progress.selectedSkin),
       feedback: _services.audio,
+      mode: widget.mode,
     )..addListener(_onControllerChanged);
+    _markBest();
     _game = FloppyGame(_controller!);
     GameScreen.debugLastController = _controller;
     _lastAttempt = c.attempts;
@@ -70,8 +90,20 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
+  bool get _endless => widget.mode == PlayMode.endless;
+  bool get _daily => widget.mode == PlayMode.daily;
+
+  void _markBest() {
+    final best = _services.progress.endlessBestDistance;
+    if (_endless && best > 0) c.renderer.bestX = c.level.start.x + best;
+  }
+
   void _onControllerChanged() {
     final phase = c.phase;
+    if (_endless && c.zoneWorld != _lastZone) {
+      _lastZone = c.zoneWorld;
+      _services.audio.startMusic(world: _lastZone);
+    }
     if (c.attempts != _lastAttempt) {
       _lastAttempt = c.attempts;
       _services.analytics.levelStart(c.level.id, c.attempts);
@@ -80,10 +112,20 @@ class _GameScreenState extends State<GameScreen> {
       if (phase == GamePhase.dying) {
         final p = c.sim.deathPoint;
         _services.analytics.levelFail(c.level.id, c.sim.deathCause?.name ?? '?', p?.x ?? 0, c.sim.runTime);
+        final er = c.endlessResult;
+        if (er != null) {
+          _modeReward = _services.progress.recordEndless(er);
+          _markBest();
+        }
       }
+      if (phase == GamePhase.ready) _modeReward = null;
       if (phase == GamePhase.won && c.result != null) {
         final r = c.result!;
-        _reward = _services.progress.recordWin(c.level.id, r);
+        if (_daily) {
+          _modeReward = _services.progress.recordDaily(widget.day, r);
+        } else {
+          _reward = _services.progress.recordWin(c.level.id, r);
+        }
         _doubled = false;
         _services.analytics.levelComplete(c.level.id, r.time, r.starCount, c.attempts);
         Future<void>.delayed(const Duration(milliseconds: 900), () {
@@ -155,7 +197,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _next() {
-    final next = _services.levelById(widget.levelId + 1);
+    final next = widget.mode == PlayMode.campaign ? _services.levelById(widget.levelId + 1) : null;
     if (next == null || !_services.progress.isUnlocked(next.id)) {
       Navigator.of(context).pop();
     } else {
@@ -230,6 +272,7 @@ class _GameScreenState extends State<GameScreen> {
               IgnorePointer(
                 child: Column(
                   children: [
+                    if (c.endlessResult != null) _endlessCard(c.endlessResult!),
                     Text(line, textAlign: TextAlign.center, style: display(34)),
                     const SizedBox(height: 6),
                     _Pulse(child: Text('Tap anywhere to retry', style: display(22, color: AppColors.yellow))),
@@ -254,6 +297,18 @@ class _GameScreenState extends State<GameScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     ),
                   ),
+                  if (_endless)
+                    ChunkyButton(
+                      onPressed: () => Navigator.of(context).pushReplacement(
+                        popRoute(GameScreen.endless(seed: DateTime.now().microsecondsSinceEpoch & 0x7fffffff)),
+                      ),
+                      icon: Icons.shuffle_rounded,
+                      label: 'New course',
+                      color: AppColors.blue,
+                      shade: AppColors.blueDark,
+                      fontSize: 20,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    ),
                   if (c.canRevive) ...[
                     ListenableBuilder(
                       listenable: ads,
@@ -291,13 +346,76 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  Widget _endlessCard(EndlessResult r) {
+    final reward = _modeReward;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Panel(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+        child: Column(
+          children: [
+            if (reward?.newBest ?? false)
+              Text('NEW BEST!', style: display(22, color: AppColors.pink, shadow: false)),
+            Text('${r.distance} m', style: display(48, color: AppColors.orange)),
+            Text(
+              'Score ${r.score}  ·  Best ${_services.progress.endlessBest}',
+              style: body(17, weight: 700),
+            ),
+            if (reward != null && reward.coins > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CoinIcon(size: 22),
+                    Text(' +${reward.coins}', style: display(22, color: AppColors.yellowDark, shadow: false)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dailyRewardRow() {
+    final reward = _modeReward;
+    if (reward == null) return const SizedBox.shrink();
+    final streak = _services.progress.currentDailyStreak;
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CoinIcon(size: 28),
+            Text(' +${reward.coins}', style: display(30, color: AppColors.yellowDark)),
+            if (reward.gems > 0) ...[
+              const SizedBox(width: 14),
+              const GemIcon(size: 26),
+              Text(' +${reward.gems}', style: display(30, color: AppColors.blue)),
+            ],
+          ],
+        ),
+        if (reward.newBest) Text('New best time today!', style: body(16, weight: 700)),
+        if (streak > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '🔥 $streak day streak${reward.streakBonus ? ' - bonus gems!' : ''}',
+              style: body(16, weight: 700),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _winPanel() {
     final r = c.result!;
     final reward = _reward;
-    final rec = _services.progress.record(c.level.id);
-    final next = _services.levelById(widget.levelId + 1);
+    final best = _daily ? _services.progress.dailyRecord(widget.day).bestTime : _services.progress.record(c.level.id).bestTime;
+    final next = _daily ? null : _services.levelById(widget.levelId + 1);
     final hasNext = next != null && _services.progress.isUnlocked(next.id);
-    final worldClear = c.level.id % WorldInfo.levelsPerWorld == 0;
+    final worldClear = !_daily && c.level.id % WorldInfo.levelsPerWorld == 0;
     // Finished a world but the next one still needs stars.
     final gate = next != null && !hasNext ? WorldInfo.byNumber(next.world) : null;
     return Positioned.fill(
@@ -311,7 +429,10 @@ class _GameScreenState extends State<GameScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(worldClear ? 'WORLD CLEAR!' : 'LEVEL CLEAR!', style: display(40, color: AppColors.orange)),
+                    Text(
+                      _daily ? 'DAILY CLEAR!' : (worldClear ? 'WORLD CLEAR!' : 'LEVEL CLEAR!'),
+                      style: display(40, color: AppColors.orange),
+                    ),
                     const SizedBox(height: 8),
                     _StarReveal(mask: r.starMask),
                     const SizedBox(height: 10),
@@ -321,9 +442,10 @@ class _GameScreenState extends State<GameScreen> {
                     _statRow(Icons.toll_rounded, 'Coins', '${r.coins}/${r.totalCoins}',
                         r.coinStar ? AppColors.greenDark : AppColors.ink),
                     if (r.style > 0) _statRow(Icons.auto_awesome_rounded, 'Style', '${r.style}', AppColors.ink),
-                    if (rec.bestTime != null)
-                      _statRow(Icons.emoji_events_rounded, 'Best', '${rec.bestTime!.toStringAsFixed(2)}s', AppColors.ink),
+                    if (best != null)
+                      _statRow(Icons.emoji_events_rounded, 'Best', '${best.toStringAsFixed(2)}s', AppColors.ink),
                     const Divider(height: 22, thickness: 2),
+                    if (_daily) _dailyRewardRow(),
                     if (reward != null)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -376,7 +498,11 @@ class _GameScreenState extends State<GameScreen> {
                               color: AppColors.pink, shade: const Color(0xFFC02E63)),
                         ),
                         const SizedBox(width: 10),
-                        ChunkyButton(onPressed: _next, label: hasNext ? 'Next' : 'Levels', icon: Icons.arrow_forward_rounded),
+                        ChunkyButton(
+                          onPressed: _next,
+                          label: hasNext ? 'Next' : (_daily ? 'Done' : 'Levels'),
+                          icon: Icons.arrow_forward_rounded,
+                        ),
                       ],
                     ),
                   ],
@@ -440,7 +566,7 @@ class _GameScreenState extends State<GameScreen> {
                     const SizedBox(height: 6),
                     ChunkyButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      label: 'Levels',
+                      label: widget.mode == PlayMode.campaign ? 'Levels' : 'Quit',
                       icon: Icons.grid_view_rounded,
                       color: AppColors.grey,
                       shade: AppColors.greyDark,
@@ -509,6 +635,8 @@ class _HudState extends State<_Hud> with SingleTickerProviderStateMixin {
     final sim = c.sim;
     final time = sim.runTime;
     final beating = time <= c.level.targetTime;
+    final endless = c.mode == PlayMode.endless;
+    final zoneAge = c.wallTime - c.zoneEnteredAt;
     return Positioned(
       left: 0,
       right: 0,
@@ -525,11 +653,27 @@ class _HudState extends State<_Hud> with SingleTickerProviderStateMixin {
                 child: IgnorePointer(
                   child: Column(
                     children: [
-                      Text('${c.level.id}. ${c.level.name}', style: display(18)),
-                      Text(
-                        time.toStringAsFixed(2),
-                        style: display(34, color: beating ? Colors.white : const Color(0xFFFFB0A8)),
-                      ),
+                      if (endless) ...[
+                        Text('ENDLESS', style: display(18)),
+                        Text('${c.distance.floor()} m', style: display(34)),
+                        if (zoneAge < 2.5)
+                          Opacity(
+                            opacity: zoneAge < 2 ? 1 : (2.5 - zoneAge) * 2,
+                            child: Text(
+                              'ZONE ${c.zoneWorld}: ${WorldInfo.byNumber(c.zoneWorld).name.toUpperCase()}',
+                              style: display(20, color: AppColors.yellow),
+                            ),
+                          ),
+                      ] else ...[
+                        Text(
+                          c.mode == PlayMode.daily ? 'DAILY: ${c.level.name}' : '${c.level.id}. ${c.level.name}',
+                          style: display(18),
+                        ),
+                        Text(
+                          time.toStringAsFixed(2),
+                          style: display(34, color: beating ? Colors.white : const Color(0xFFFFB0A8)),
+                        ),
+                      ],
                       if (sim.styleScore > 0)
                         Text('STYLE ${sim.styleScore.round()}', style: display(16, color: AppColors.yellow)),
                     ],
@@ -548,7 +692,7 @@ class _HudState extends State<_Hud> with SingleTickerProviderStateMixin {
                     children: [
                       const CoinIcon(size: 22),
                       const SizedBox(width: 6),
-                      Text('${sim.coinCount}/${c.level.coins.length}', style: display(20)),
+                      Text(endless ? '${sim.coinCount}' : '${sim.coinCount}/${c.level.coins.length}', style: display(20)),
                     ],
                   ),
                 ),

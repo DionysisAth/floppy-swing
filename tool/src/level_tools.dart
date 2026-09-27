@@ -118,32 +118,6 @@ Map<String, dynamic> balanceLevel(Map<String, dynamic> json, PhysicsConfig cfg, 
     final dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
     len.add(len.last + math.sqrt(dx * dx + dy * dy));
   }
-  double segDist(double px, double py, double ax, double ay, double bx, double by) {
-    final vx = bx - ax, vy = by - ay;
-    final l2 = vx * vx + vy * vy;
-    final t = l2 == 0 ? 0.0 : (((px - ax) * vx + (py - ay) * vy) / l2).clamp(0.0, 1.0);
-    final cx = ax + vx * t - px, cy = ay + vy * t - py;
-    return math.sqrt(cx * cx + cy * cy);
-  }
-
-  bool nearHazard(double x, double y) {
-    for (final s in level.spikes) {
-      if (s.distanceTo(x, y) < 1.2) return true;
-    }
-    for (final s in level.saws) {
-      final to = s.to ?? P(s.x, s.y);
-      if (segDist(x, y, s.x, s.y, to.x, to.y) < s.r + 1.0) return true;
-    }
-    for (final b in [...level.platforms, ...level.glass, ...level.crumbles]) {
-      if (b.distanceTo(x, y) < 0.7) return true;
-    }
-    for (final l in level.launchers) {
-      final ex = l.x + math.cos(l.angle) * l.range, ey = l.y + math.sin(l.angle) * l.range;
-      if (segDist(x, y, l.x, l.y, ex, ey) < 1.0) return true;
-    }
-    return false;
-  }
-
   final coins = <List<double>>[];
   final total = len.last;
   for (var g = 0; g < groups; g++) {
@@ -153,7 +127,7 @@ Map<String, dynamic> balanceLevel(Map<String, dynamic> json, PhysicsConfig cfg, 
       var i = len.indexWhere((l) => l >= target);
       if (i < 0) i = len.length - 1;
       final x = pts[i][0], y = pts[i][1];
-      if (nearHazard(x, y) || level.finish.contains(x, y)) continue;
+      if (level.nearHazard(x, y) || level.finish.contains(x, y)) continue;
       coins.add([(x * 10).roundToDouble() / 10, (y * 10).roundToDouble() / 10]);
     }
   }

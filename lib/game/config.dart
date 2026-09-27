@@ -216,6 +216,10 @@ class EconomyConfig {
     this.levelCompleteReward = 10,
     this.reviveCost = 60,
     this.skinPrices = const {},
+    this.endlessMetresPerCoin = 10,
+    this.dailyCoins = 60,
+    this.dailyGems = 3,
+    this.dailyStreakGems = 10,
   });
 
   factory EconomyConfig.fromJson(Map<String, dynamic> m) => EconomyConfig(
@@ -223,6 +227,10 @@ class EconomyConfig {
     starReward: (m['starReward'] as num?)?.toInt() ?? 15,
     levelCompleteReward: (m['levelCompleteReward'] as num?)?.toInt() ?? 10,
     reviveCost: (m['reviveCost'] as num?)?.toInt() ?? 60,
+    endlessMetresPerCoin: (m['endlessMetresPerCoin'] as num?)?.toInt() ?? 10,
+    dailyCoins: (m['dailyCoins'] as num?)?.toInt() ?? 60,
+    dailyGems: (m['dailyGems'] as num?)?.toInt() ?? 3,
+    dailyStreakGems: (m['dailyStreakGems'] as num?)?.toInt() ?? 10,
     skinPrices: {
       for (final e
           in ((m['skinPrices'] as Map<String, dynamic>?) ?? const {}).entries)
@@ -247,4 +255,14 @@ class EconomyConfig {
 
   /// Skin id -> coin price. Skins not listed use the price in the catalogue.
   final Map<String, int> skinPrices;
+
+  /// Endless pays one coin per this many metres (plus picked-up coins).
+  final int endlessMetresPerCoin;
+
+  /// First Daily Challenge clear of the day pays this many coins and gems.
+  final int dailyCoins;
+  final int dailyGems;
+
+  /// Extra gems for every 7th day in a row the Daily Challenge is cleared.
+  final int dailyStreakGems;
 }

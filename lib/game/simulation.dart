@@ -3,9 +3,12 @@ import 'dart:typed_data';
 
 import 'package:forge2d/forge2d.dart';
 
+import 'bits.dart';
 import 'config.dart';
 import 'level.dart';
 import 'ragdoll.dart';
+
+export 'bits.dart' show Bits;
 
 enum SimStatus { running, dead, finished }
 
@@ -87,10 +90,11 @@ class Snapshot {
     required this.status,
     required this.runTime,
     Float32List? anchors,
-    this.glassBroken = 0,
+    Bits? glassBroken,
     Float32List? crumbles,
     this.explodedRockets = const [],
   }) : anchors = anchors ?? Float32List(0),
+       glassBroken = glassBroken ?? Bits.empty,
        crumbles = crumbles ?? Float32List(0);
 
   final double t;
@@ -98,8 +102,8 @@ class Snapshot {
   /// x, y for each anchor (they can move).
   final Float32List anchors;
 
-  /// Bit mask of smashed glass panes.
-  final int glassBroken;
+  /// Smashed glass panes.
+  final Bits glassBroken;
 
   /// x, y, angle for each crumbling platform.
   final Float32List crumbles;
@@ -109,7 +113,7 @@ class Snapshot {
 
   double ax(int i) => anchors[i * 2];
   double ay(int i) => anchors[i * 2 + 1];
-  bool glassIsBroken(int i) => (glassBroken >> i) & 1 == 1;
+  bool glassIsBroken(int i) => glassBroken[i];
 
   /// x, y, angle for each ragdoll part.
   final Float32List parts;
@@ -124,9 +128,9 @@ class Snapshot {
   /// Anchor that would be grabbed right now (highlighted), or -1.
   final int targetAnchor;
 
-  /// Bit masks of collected coins / reached checkpoints.
-  final int coins;
-  final int checkpoints;
+  /// Collected coins / reached checkpoints.
+  final Bits coins;
+  final Bits checkpoints;
 
   /// Torso velocity (for the face and the velocity indicator).
   final double vx;
@@ -140,8 +144,8 @@ class Snapshot {
   double py(int i) => parts[i * 3 + 1];
   double pa(int i) => parts[i * 3 + 2];
 
-  bool coinTaken(int i) => (coins >> i) & 1 == 1;
-  bool checkpointReached(int i) => (checkpoints >> i) & 1 == 1;
+  bool coinTaken(int i) => coins[i];
+  bool checkpointReached(int i) => checkpoints[i];
 }
 
 /// Contact reported during a physics step, processed after the step.
@@ -212,12 +216,12 @@ class Simulation {
     this.cfg, {
     P? spawn,
     this.runTimeOffset = 0,
-    int collectedCoins = 0,
-    int reachedCheckpoints = 0,
+    Bits? collectedCoins,
+    Bits? reachedCheckpoints,
     this.styleScore = 0,
   }) : world = World(Vector2(0, cfg.gravity)),
-       _coins = collectedCoins,
-       _checkpoints = reachedCheckpoints {
+       _coins = collectedCoins ?? Bits.empty,
+       _checkpoints = reachedCheckpoints ?? Bits.empty {
     world.setContactListener(_Listener(this));
     _ground = world.createBody(BodyDef());
     // Separate fixture-less body for rope anchors: joints disable collision
@@ -279,7 +283,7 @@ class Simulation {
   final List<Body?> _anchorBodies = [];
   final List<Body?> _glassBodies = [];
   final List<Body?> _crumbleBodies = [];
-  int _glassBroken = 0;
+  Bits _glassBroken = Bits.empty;
   final Map<int, double> _crumbleTouchedAt = {};
   final Set<int> _crumbleFallen = {};
   final Set<int> _exploded = {};
@@ -325,8 +329,8 @@ class Simulation {
   bool _ropeMaySnap = false;
   final Vector2 _preStepVelocity = Vector2.zero();
 
-  int _coins;
-  int _checkpoints;
+  Bits _coins;
+  Bits _checkpoints;
   int lastCheckpoint = -1;
 
   double _stillTime = 0;
@@ -350,9 +354,9 @@ class Simulation {
   bool get isHolding => _holding;
   bool get isAttached => _rope != null;
   int get ropeAnchor => _ropeAnchor;
-  int get collectedCoinsMask => _coins;
-  int get reachedCheckpointsMask => _checkpoints;
-  int get coinCount => _popCount(_coins);
+  Bits get collectedCoins => _coins;
+  Bits get reachedCheckpoints => _checkpoints;
+  int get coinCount => _coins.count;
   bool get allCoins => coinCount == level.coins.length;
 
   /// Level clock (0 until the first press).
@@ -710,7 +714,7 @@ class Simulation {
         final walls = [
           ...level.platforms,
           for (var i = 0; i < level.glass.length; i++)
-            if (!(( _glassBroken >> i) & 1 == 1)) level.glass[i],
+            if (!_glassBroken[i]) level.glass[i],
         ];
         if (walls.any((w) => w.contains(r.x, r.y))) {
           _exploded.add(key);
@@ -762,7 +766,7 @@ class Simulation {
     if (body == null) return;
     world.destroyBody(body);
     _glassBodies[i] = null;
-    _glassBroken |= 1 << i;
+    _glassBroken = _glassBroken.add(i);
     // Smash straight through: undo the bounce the collision just caused.
     for (var p = 0; p < Part.count; p++) {
       ragdoll.parts[p].linearVelocity = _partVelocities[p] * 0.9;
@@ -861,13 +865,13 @@ class Simulation {
   void _checkPickups() {
     final r2 = cfg.pickupRadius * cfg.pickupRadius;
     for (var i = 0; i < level.coins.length; i++) {
-      if ((_coins >> i) & 1 == 1) continue;
+      if (_coins[i]) continue;
       final c = level.coins[i];
       for (final pi in _pickupParts) {
         final p = ragdoll.parts[pi].position;
         final dx = p.x - c.x, dy = p.y - c.y;
         if (dx * dx + dy * dy < r2) {
-          _coins |= 1 << i;
+          _coins = _coins.add(i);
           events.add(SimEvent(EventKind.coin, t, c.x, c.y, value: i.toDouble()));
           break;
         }
@@ -877,10 +881,10 @@ class Simulation {
     // flying over one counts too.
     final tp = ragdoll.torso.position;
     for (var i = 0; i < level.checkpoints.length; i++) {
-      if ((_checkpoints >> i) & 1 == 1) continue;
+      if (_checkpoints[i]) continue;
       final c = level.checkpoints[i];
       if ((tp.x - c.x).abs() < cfg.checkpointRadius && tp.y < c.y) {
-        _checkpoints |= 1 << i;
+        _checkpoints = _checkpoints.add(i);
         lastCheckpoint = i;
         events.add(SimEvent(EventKind.checkpoint, t, c.x, c.y, value: i.toDouble()));
       }
@@ -1069,14 +1073,6 @@ class Simulation {
     return body;
   }
 
-  static int _popCount(int v) {
-    var c = 0;
-    while (v != 0) {
-      v &= v - 1;
-      c++;
-    }
-    return c;
-  }
 }
 
 class _SightCallback implements RayCastCallback {

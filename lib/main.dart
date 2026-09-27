@@ -32,6 +32,7 @@ Future<void> main() async {
         physics: content.physics,
         economy: content.economy,
         levels: content.levels,
+        dailies: content.dailies,
         progress: progress,
         audio: audio,
         ads: ads,

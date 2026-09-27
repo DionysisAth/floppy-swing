@@ -37,6 +37,7 @@ void main() {
           physics: content!.physics,
           economy: content.economy,
           levels: content.levels,
+          dailies: content.dailies,
           progress: progress,
           audio: audio,
           ads: NoAdsService(),
@@ -84,7 +85,21 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.arrow_back_rounded));
     await frames(tester, 25);
-    await tester.tap(find.text('SKINS'));
+
+    // Endless and the Daily Challenge open from the menu and quit back.
+    for (final mode in ['ENDLESS', 'DAILY']) {
+      await tester.tap(find.text(mode));
+      await frames(tester, 25);
+      expect(find.byType(GameScreen), findsOneWidget, reason: mode);
+      expect(find.textContaining(mode == 'ENDLESS' ? 'ENDLESS' : 'DAILY:'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.pause_rounded));
+      await frames(tester, 5);
+      await tester.tap(find.text('Quit'));
+      await frames(tester, 25);
+      expect(find.text('PLAY'), findsOneWidget);
+    }
+
+    await tester.tap(find.text('SHOP'));
     await frames(tester, 25);
     expect(find.byType(ShopScreen), findsOneWidget);
     expect(find.text('EQUIPPED'), findsOneWidget);

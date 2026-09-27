@@ -30,6 +30,7 @@ flutter:
   assets:
     - assets/config/
     - assets/levels/
+    - assets/daily/
     - assets/audio/
   fonts:
     - family: LilitaOne

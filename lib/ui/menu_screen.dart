@@ -8,6 +8,7 @@ import '../game/autopilot.dart';
 import '../game/floppy_game.dart';
 import '../game/game_controller.dart';
 import '../game/skins.dart';
+import 'game_screen.dart';
 import 'level_select_screen.dart';
 import 'settings_screen.dart';
 import 'shop_screen.dart';
@@ -101,8 +102,19 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                         ),
                         const Spacer(),
                         _StarsBadge(stars: services.progress.totalStars, max: services.levels.length * 3),
-                        const SizedBox(width: 8),
-                        CoinBadge(coins: services.progress.coins),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: FittedBox(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                CoinBadge(coins: services.progress.coins),
+                                const SizedBox(height: 4),
+                                GemBadge(gems: services.progress.gems),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const Spacer(flex: 2),
@@ -138,9 +150,28 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                       shade: AppColors.greenDark,
                     ),
                     const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _dailyButton(services)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _ModeButton(
+                            onPressed: () => _open(GameScreen.endless(seed: DateTime.now().microsecondsSinceEpoch & 0x7fffffff)),
+                            icon: Icons.all_inclusive_rounded,
+                            label: 'ENDLESS',
+                            sub: services.progress.endlessBestDistance > 0
+                                ? 'Best ${services.progress.endlessBestDistance} m'
+                                : 'How far can you go?',
+                            color: AppColors.blue,
+                            shade: AppColors.blueDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                     ChunkyButton(
                       onPressed: () => _open(const ShopScreen()),
-                      label: 'SKINS',
+                      label: 'SHOP',
                       icon: Icons.checkroom_rounded,
                       fontSize: 26,
                       color: AppColors.pink,
@@ -156,6 +187,89 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
       ),
     );
   }
+}
+
+extension on _MenuScreenState {
+  Widget _dailyButton(AppServices services) {
+    final progress = services.progress;
+    final day = progress.today;
+    final done = progress.dailyRecord(day).completed;
+    final streak = progress.currentDailyStreak;
+    return _ModeButton(
+      onPressed: services.dailies.isEmpty ? null : () => _open(GameScreen.daily(day: day)),
+      icon: Icons.today_rounded,
+      label: 'DAILY',
+      sub: done ? 'Done! 🔥 $streak' : (streak > 0 ? 'Keep your 🔥 $streak' : 'New challenge!'),
+      color: AppColors.orange,
+      shade: AppColors.orangeDark,
+      badge: !done,
+    );
+  }
+}
+
+/// A mode button with a caption underneath (best score, streak...).
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    required this.sub,
+    required this.color,
+    required this.shade,
+    this.badge = false,
+  });
+
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final String label;
+  final String sub;
+  final Color color;
+  final Color shade;
+  final bool badge;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    clipBehavior: Clip.none,
+    fit: StackFit.passthrough,
+    children: [
+      ChunkyButton(
+        onPressed: onPressed,
+        color: color,
+        shade: shade,
+        expand: true,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Column(
+          children: [
+            FittedBox(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: Colors.white, size: 24),
+                  const SizedBox(width: 6),
+                  Text(label, style: display(24)),
+                ],
+              ),
+            ),
+            FittedBox(child: Text(sub, style: body(14, weight: 700, color: Colors.white))),
+          ],
+        ),
+      ),
+      if (badge)
+        Positioned(
+          right: -4,
+          top: -6,
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: AppColors.pink,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.ink, width: 3),
+            ),
+          ),
+        ),
+    ],
+  );
 }
 
 class _StarsBadge extends StatelessWidget {

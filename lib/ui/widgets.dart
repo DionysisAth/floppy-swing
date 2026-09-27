@@ -168,6 +168,84 @@ class CoinBadge extends StatelessWidget {
   );
 }
 
+/// A faceted gem, the premium currency.
+class GemIcon extends StatelessWidget {
+  const GemIcon({super.key, this.size = 22});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: const _GemPainter());
+}
+
+class _GemPainter extends CustomPainter {
+  const _GemPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final outline = Path()
+      ..moveTo(w * 0.22, h * 0.12)
+      ..lineTo(w * 0.78, h * 0.12)
+      ..lineTo(w, h * 0.38)
+      ..lineTo(w * 0.5, h * 0.95)
+      ..lineTo(0, h * 0.38)
+      ..close();
+    canvas.drawPath(outline, Paint()..color = const Color(0xFF3FD0FF));
+    // Facets.
+    canvas.drawPath(
+      Path()
+        ..moveTo(0, h * 0.38)
+        ..lineTo(w, h * 0.38)
+        ..lineTo(w * 0.5, h * 0.95)
+        ..close(),
+      Paint()..color = const Color(0xFF1C9AD6),
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.22, h * 0.12)
+        ..lineTo(w * 0.5, h * 0.38)
+        ..lineTo(w * 0.78, h * 0.12)
+        ..close(),
+      Paint()..color = const Color(0xFFB8F1FF),
+    );
+    canvas.drawPath(
+      outline,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w * 0.09
+        ..strokeJoin = StrokeJoin.round
+        ..color = AppColors.ink,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GemPainter oldDelegate) => false;
+}
+
+/// Gem balance pill.
+class GemBadge extends StatelessWidget {
+  const GemBadge({super.key, required this.gems});
+  final int gems;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(8, 6, 14, 6),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(30),
+      border: Border.all(color: AppColors.ink, width: 3),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const GemIcon(),
+        const SizedBox(width: 6),
+        Text('$gems', style: display(22, color: AppColors.ink, shadow: false)),
+      ],
+    ),
+  );
+}
+
 class StarRow extends StatelessWidget {
   const StarRow({super.key, required this.mask, this.size = 18, this.spacing = 1});
   final int mask;

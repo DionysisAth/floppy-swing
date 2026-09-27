@@ -24,7 +24,14 @@ void main() {
     expect(levels.map((l) => l.id).toSet(), {for (var i = 1; i <= levelCount; i++) i});
   });
 
-  for (final level in levels) {
+  final dailies = loadDailies();
+  test('the daily pool is complete, themed and uniquely numbered', () {
+    expect(dailies, hasLength(dailyPoolSize));
+    expect(dailies.map((l) => l.id).toSet(), {for (var n = 1; n <= dailyPoolSize; n++) 1000 + n});
+    expect(dailies.map((l) => l.world).toSet(), {1, 2, 3, 4, 5});
+  });
+
+  for (final level in [...levels, ...dailies]) {
     group('level ${level.id} "${level.name}"', () {
       test('is well formed', () {
         expect(level.anchors, isNotEmpty);

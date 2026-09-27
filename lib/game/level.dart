@@ -152,6 +152,7 @@ class Level {
     this.crumbles = const [],
     this.launchers = const [],
     this.hint,
+    this.worldOverride,
   });
 
   factory Level.fromJson(Map<String, dynamic> m) {
@@ -173,6 +174,7 @@ class Level {
       name: m['name'] as String,
       targetTime: (m['targetTime'] as num).toDouble(),
       hint: m['hint'] as String?,
+      worldOverride: (m['world'] as num?)?.toInt(),
       start: p((m['start'] as List).cast<num>()),
       finish: box((m['finish'] as List).cast<num>()),
       killY: (m['killY'] as num).toDouble(),
@@ -271,8 +273,39 @@ class Level {
   /// Rocket launchers (World 5).
   final List<Launcher> launchers;
 
-  /// World number: 20 levels per world.
-  int get world => id < 1 ? 1 : (id - 1) ~/ 20 + 1;
+  /// Theme world for levels outside the campaign (daily challenges).
+  final int? worldOverride;
+
+  /// World number: 20 levels per world (or [worldOverride]).
+  int get world => worldOverride ?? (id < 1 ? 1 : (id - 1) ~/ 20 + 1);
+
+  /// Whether a coin at [x], [y] would sit on or next to something that
+  /// hurts or blocks (so coin trails never bait players into hazards).
+  bool nearHazard(double x, double y) {
+    double segDist(double ax, double ay, double bx, double by) {
+      final vx = bx - ax, vy = by - ay;
+      final l2 = vx * vx + vy * vy;
+      final t = l2 == 0 ? 0.0 : (((x - ax) * vx + (y - ay) * vy) / l2).clamp(0.0, 1.0);
+      final cx = ax + vx * t - x, cy = ay + vy * t - y;
+      return math.sqrt(cx * cx + cy * cy);
+    }
+
+    for (final s in spikes) {
+      if (s.distanceTo(x, y) < 1.2) return true;
+    }
+    for (final s in saws) {
+      final to = s.to ?? P(s.x, s.y);
+      if (segDist(s.x, s.y, to.x, to.y) < s.r + 1.0) return true;
+    }
+    for (final b in [...platforms, ...glass, ...crumbles]) {
+      if (b.distanceTo(x, y) < 0.7) return true;
+    }
+    for (final l in launchers) {
+      final ex = l.x + math.cos(l.angle) * l.range, ey = l.y + math.sin(l.angle) * l.range;
+      if (segDist(l.x, l.y, ex, ey) < 1.0) return true;
+    }
+    return false;
+  }
 
   /// Horizontal extent of everything in the level, for camera clamping.
   ({double minX, double maxX, double minY}) get extent {

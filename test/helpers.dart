@@ -9,8 +9,13 @@ PhysicsConfig loadPhysics() =>
 EconomyConfig loadEconomy() =>
     EconomyConfig.parse(File('assets/config/economy.json').readAsStringSync());
 
-List<Level> loadLevels() {
-  final files = Directory('assets/levels')
+List<Level> loadLevels() => _loadDir('assets/levels');
+
+/// The Daily Challenge pool.
+List<Level> loadDailies() => _loadDir('assets/daily');
+
+List<Level> _loadDir(String dir) {
+  final files = Directory(dir)
       .listSync()
       .whereType<File>()
       .where((f) => f.path.endsWith('.json'))

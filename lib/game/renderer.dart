@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
 
+import 'course_builder.dart';
 import 'level.dart';
 import 'ragdoll.dart';
 import 'simulation.dart';
@@ -175,8 +176,11 @@ class WorldTheme {
   /// Each world of 20 levels drifts between its own keyframes.
   static WorldTheme forLevel(int id) {
     if (id < 1) return morning;
-    final world = (id - 1) ~/ 20 + 1;
-    final t = ((id - 1) % 20) / 19;
+    return forWorld((id - 1) ~/ 20 + 1, ((id - 1) % 20) / 19);
+  }
+
+  /// Theme [t] of the way (0-1) through [world].
+  static WorldTheme forWorld(int world, double t) {
     return switch (world) {
       1 =>
         t < 0.5
@@ -193,12 +197,24 @@ class WorldTheme {
 /// Draws a level and a [Frame] onto a canvas. Stateless apart from caches, so
 /// the same renderer draws live play, slow-motion replays and exported clips.
 class WorldRenderer {
-  WorldRenderer(this.level, this.skin)
+  WorldRenderer(this.level, this.skin, {this.endless = false})
     : _extent = level.extent,
-      theme = WorldTheme.forLevel(level.id);
+      theme = level.worldOverride != null
+          ? WorldTheme.forWorld(level.world, 0.5)
+          : WorldTheme.forLevel(level.id);
 
   final Level level;
-  final WorldTheme theme;
+
+  /// Endless courses change look zone by zone as the camera moves.
+  final bool endless;
+  WorldTheme theme;
+
+  /// The next zone's theme, faded in over the end of an endless zone.
+  WorldTheme? _nextTheme;
+  double _nextFade = 0;
+
+  /// World x of the player's best Endless distance, marked with a flag.
+  double? bestX;
   Skin skin;
   final ({double minX, double maxX, double minY}) _extent;
   final Map<String, TextPainter> _textCache = {};
@@ -233,6 +249,7 @@ class WorldRenderer {
     final wt = wallTime ?? time;
     final scale = size.width / cam.w;
 
+    if (endless) _updateEndlessTheme(cam.x);
     _drawBackground(canvas, size, cam, scale, wt);
 
     canvas.save();
@@ -250,6 +267,8 @@ class WorldRenderer {
 
     _drawPit(canvas, view);
     _drawFinish(canvas, view, wt);
+    final best = bestX;
+    if (best != null && _visible(view, best, 0, 3)) _drawBestFlag(canvas, best, wt);
     for (var i = 0; i < level.checkpoints.length; i++) {
       _drawCheckpoint(
         canvas,
@@ -385,7 +404,60 @@ class WorldRenderer {
 
   // ------------------------------------------------------------ background
 
+  void _updateEndlessTheme(double x) {
+    const zone = CourseBuilder.zoneLength, fade = 30.0;
+    final into = x % zone;
+    theme = WorldTheme.forWorld(CourseBuilder.endlessWorld(x), into / zone);
+    final left = zone - into;
+    if (left < fade) {
+      _nextTheme = WorldTheme.forWorld(CourseBuilder.endlessWorld(x + left + 1), 0);
+      _nextFade = 1 - left / fade;
+    } else {
+      _nextTheme = null;
+    }
+  }
+
   void _drawBackground(
+    Canvas canvas,
+    Size size,
+    Cam cam,
+    double scale,
+    double wt,
+  ) {
+    _drawScenery(canvas, size, cam, scale, wt);
+    final next = _nextTheme;
+    if (next == null || _nextFade <= 0) return;
+    // Cross-fade into the next endless zone.
+    canvas.saveLayer(
+      Offset.zero & size,
+      Paint()..color = Color.fromRGBO(0, 0, 0, _nextFade.clamp(0.0, 1.0)),
+    );
+    final current = theme;
+    theme = next;
+    _drawScenery(canvas, size, cam, scale, wt);
+    theme = current;
+    canvas.restore();
+  }
+
+  void _drawBestFlag(Canvas canvas, double x, double wt) {
+    _stroke
+      ..color = Palette.ink
+      ..strokeWidth = 0.14;
+    canvas.drawLine(Offset(x, level.killY), Offset(x, -13), _stroke);
+    final wave = math.sin(wt * 4) * 0.15;
+    _fill.color = const Color(0xFFFFD23F);
+    canvas.drawPath(
+      Path()
+        ..moveTo(x, -13)
+        ..lineTo(x + 2.4, -12.4 + wave)
+        ..lineTo(x, -11.6)
+        ..close(),
+      _fill,
+    );
+    _comicText(canvas, 'BEST', x + 1.1, -14, 0.5, 0.55);
+  }
+
+  void _drawScenery(
     Canvas canvas,
     Size size,
     Cam cam,

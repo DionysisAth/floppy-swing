@@ -12,8 +12,12 @@ import 'ui/theme.dart';
 /// Number of campaign levels shipped in `assets/levels/`.
 const levelCount = 100;
 
+/// Number of Daily Challenge levels in `assets/daily/`; day n plays pool
+/// entry n mod this.
+const dailyPoolSize = 60;
+
 /// Loads configs and levels from the asset bundle.
-Future<({PhysicsConfig physics, EconomyConfig economy, List<Level> levels})> loadContent(
+Future<({PhysicsConfig physics, EconomyConfig economy, List<Level> levels, List<Level> dailies})> loadContent(
   AssetBundle bundle,
 ) async {
   final physics = PhysicsConfig.parse(await bundle.loadString('assets/config/physics.json'));
@@ -22,7 +26,11 @@ Future<({PhysicsConfig physics, EconomyConfig economy, List<Level> levels})> loa
     for (var i = 1; i <= levelCount; i++)
       Level.parse(await bundle.loadString('assets/levels/level_${i.toString().padLeft(3, '0')}.json')),
   ];
-  return (physics: physics, economy: economy, levels: levels);
+  final dailies = <Level>[
+    for (var i = 1; i <= dailyPoolSize; i++)
+      Level.parse(await bundle.loadString('assets/daily/daily_${i.toString().padLeft(3, '0')}.json')),
+  ];
+  return (physics: physics, economy: economy, levels: levels, dailies: dailies);
 }
 
 /// App-wide services, available to every screen.
@@ -32,6 +40,7 @@ class AppServices extends InheritedWidget {
     required this.physics,
     required this.economy,
     required this.levels,
+    this.dailies = const [],
     required this.progress,
     required this.audio,
     required this.ads,
@@ -42,6 +51,9 @@ class AppServices extends InheritedWidget {
   final PhysicsConfig physics;
   final EconomyConfig economy;
   final List<Level> levels;
+
+  /// Daily Challenge pool (see [dailyFor]).
+  final List<Level> dailies;
   final ProgressStore progress;
   final AudioService audio;
   final AdsService ads;
@@ -54,6 +66,9 @@ class AppServices extends InheritedWidget {
       context.getInheritedWidgetOfExactType<AppServices>();
 
   Level? levelById(int id) => id >= 1 && id <= levels.length ? levels[id - 1] : null;
+
+  /// Today's challenge ([day] from [dayNumber]), or null without a pool.
+  Level? dailyFor(int day) => dailies.isEmpty ? null : dailies[day % dailies.length];
 
   @override
   bool updateShouldNotify(AppServices oldWidget) => false;

@@ -3,6 +3,10 @@
   "starReward": 15,
   "levelCompleteReward": 10,
   "reviveCost": 60,
+  "endlessMetresPerCoin": 10,
+  "dailyCoins": 60,
+  "dailyGems": 3,
+  "dailyStreakGems": 10,
   "skinPrices": {
     "banana": 150,
     "knight": 300,
