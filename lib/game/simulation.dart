@@ -22,6 +22,9 @@ class WorldTag {
 
 enum EventKind {
   grab,
+
+  /// Slingshot launch when grabbing from the ground (x/y = character).
+  launch,
   release,
   miss,
   coin,
@@ -381,8 +384,15 @@ class Simulation {
     _bigSwingAwarded = false;
     _lastSwingAngle = _swingAngle();
     if (_touching > 0) {
-      final dir = (anchor - ragdoll.torso.position)..normalize();
-      ragdoll.addVelocity(dir * cfg.groundGrabHop);
+      // Slingshot: fling the character forward and up into a full swing.
+      final torso = ragdoll.torso.position;
+      final toAnchor = (anchor - torso)..normalize();
+      final forward = (level.finish.x - torso.x).sign;
+      var tangent = Vector2(-toAnchor.y, toAnchor.x);
+      if (tangent.x * forward < 0) tangent = -tangent;
+      final dir = (tangent * 0.8 + toAnchor * 0.6)..normalize();
+      ragdoll.setVelocity(dir * cfg.groundLaunchSpeed);
+      events.add(SimEvent(EventKind.launch, t, torso.x, torso.y));
     }
     events.add(SimEvent(EventKind.grab, t, a.x, a.y, value: idx.toDouble()));
   }
@@ -433,8 +443,11 @@ class Simulation {
     // Only pump on the down-swing and the bottom of the arc; pumping on the
     // way up would let you climb to the top of every anchor.
     final belowAnchor = r.y > -0.2 * r.length;
-    if (belowAnchor && v.length < cfg.maxSwingSpeed) {
-      torso.applyForce(tangent * (cfg.swingPump * ragdoll.totalMass));
+    final speed = v.length;
+    if (belowAnchor && speed < cfg.maxSwingSpeed) {
+      final slow = ((cfg.assistBelowSpeed - speed) / cfg.assistBelowSpeed).clamp(0.0, 1.0);
+      final pump = cfg.swingPump * (1 + cfg.lowSpeedAssist * slow);
+      torso.applyForce(tangent * (pump * ragdoll.totalMass));
     }
 
     // Track how far around the anchor we've swung for the "Big Swing" bonus.

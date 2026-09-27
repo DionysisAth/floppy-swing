@@ -66,6 +66,17 @@ void main() {
     expect(sim.startedAt, isNotNull);
   });
 
+  test('the first grab slings the character straight into a fast swing', () {
+    final sim = Simulation(testLevel(), cfg);
+    stepFor(sim, 1); // Settle on the start platform.
+    sim.press();
+    expect(sim.events.map((e) => e.kind), contains(EventKind.launch));
+    stepFor(sim, 0.1);
+    expect(sim.ragdoll.velocity.length, greaterThan(9));
+    // Heading forward (towards the finish) and up.
+    expect(sim.ragdoll.velocity.x, greaterThan(0));
+  });
+
   test('pressing with nothing in range is a miss', () {
     final level = Level.parse('''{"id": 1, "name": "x", "targetTime": 1, "start": [0, -2], "killY": 6,
       "finish": [50, 0, 2, 2], "platforms": [[0, 0, 5, 1]], "anchors": [[40, -8]]}''');

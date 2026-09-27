@@ -19,7 +19,9 @@ class PhysicsConfig {
     this.maxSwingSpeed = 15.0,
     this.releaseBoost = 1.5,
     this.releaseLift = 2.5,
-    this.groundGrabHop = 5.0,
+    this.groundLaunchSpeed = 12.0,
+    this.lowSpeedAssist = 1.8,
+    this.assistBelowSpeed = 8.0,
     this.anchorForwardBias = 0.45,
     this.anchorBelowPenalty = 0.6,
     this.bodyDensity = 1.0,
@@ -50,7 +52,9 @@ class PhysicsConfig {
     maxSwingSpeed: _d(m, 'maxSwingSpeed', 15.0),
     releaseBoost: _d(m, 'releaseBoost', 1.5),
     releaseLift: _d(m, 'releaseLift', 2.5),
-    groundGrabHop: _d(m, 'groundGrabHop', 5.0),
+    groundLaunchSpeed: _d(m, 'groundLaunchSpeed', 12.0),
+    lowSpeedAssist: _d(m, 'lowSpeedAssist', 1.8),
+    assistBelowSpeed: _d(m, 'assistBelowSpeed', 8.0),
     anchorForwardBias: _d(m, 'anchorForwardBias', 0.45),
     anchorBelowPenalty: _d(m, 'anchorBelowPenalty', 0.6),
     bodyDensity: _d(m, 'bodyDensity', 1.0),
@@ -103,9 +107,17 @@ class PhysicsConfig {
   /// Extra upward speed (m/s) when letting go.
   final double releaseLift;
 
-  /// Upward speed (m/s) given when grabbing while lying on the ground, so
-  /// the first grab yanks the character up instead of dragging it.
-  final double groundGrabHop;
+  /// Speed (m/s) the character is slung with when grabbing while standing or
+  /// lying on something (the start of every level, landings, revives). It
+  /// throws them straight into a full swing instead of a slow drag.
+  final double groundLaunchSpeed;
+
+  /// Extra swing pump while moving slowly: the pump is multiplied by up to
+  /// (1 + [lowSpeedAssist]) at a standstill, fading out at
+  /// [assistBelowSpeed]. Gets sluggish swings going without making fast
+  /// ones faster.
+  final double lowSpeedAssist;
+  final double assistBelowSpeed;
 
   /// How strongly anchor picking prefers anchors in the direction of travel.
   final double anchorForwardBias;

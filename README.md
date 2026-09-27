@@ -13,6 +13,8 @@ This is the **MVP milestone** from the design document (section 15).
 
 ## What's in the MVP
 
+- **Slingshot start:** the first grab from the ground flings the character straight into a full-speed swing, and slow swings get extra pump until they're moving.
+- **Themed worlds:** levels drift from bright morning through golden afternoon to sunset, with a sun, parallax mountains, hills and trees, a motion trail, speed lines, dust puffs and screen shake.
 - **One-touch controls:** hold to grab the nearest ring in range (it glows), release to let go.
 - **Floppy 2D ragdoll**, 10 parts on limited revolute joints, with a rope (max-length joint) on the front hand.
 - **Obstacles:** spikes, spinning saws (static and moving), bounce pads, plus a spike pit.

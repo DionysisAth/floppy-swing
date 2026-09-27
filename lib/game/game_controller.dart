@@ -1,11 +1,13 @@
 import 'dart:collection';
 import 'dart:math' as math;
+import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 
 import 'autopilot.dart';
 import 'config.dart';
 import 'level.dart';
+import 'ragdoll.dart';
 import 'renderer.dart';
 import 'simulation.dart';
 import 'skins.dart';
@@ -351,6 +353,19 @@ class GameController extends ChangeNotifier {
       prev = f;
     }
     return history.last;
+  }
+
+  /// The torso's path over the [seconds] before simulation time [t], oldest
+  /// first, for the motion trail.
+  List<Offset> trailAt(double t, {double seconds = 0.22}) {
+    final out = <Offset>[];
+    for (var i = history.length - 1; i >= 0; i--) {
+      final s = history.elementAt(i).s;
+      if (s.t > t + 1e-6) continue;
+      if (s.t < t - seconds) break;
+      out.add(Offset(s.px(Part.torso), s.py(Part.torso)));
+    }
+    return out.reversed.toList();
   }
 
   /// Death point in world space, for the replay camera.

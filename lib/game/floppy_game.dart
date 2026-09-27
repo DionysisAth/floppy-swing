@@ -22,13 +22,15 @@ class FloppyGame with Game {
     final s = size;
     if (s.x <= 0 || s.y <= 0) return;
     final sz = Size(s.x, s.y);
+    final frame = controller.frame;
     controller.renderer.render(
       canvas,
       sz,
-      controller.frame,
+      frame,
       events: controller.events,
       wallTime: controller.wallTime,
       showTarget: controller.autopilot == null,
+      trail: controller.trailAt(frame.s.t),
     );
     if (dim > 0) {
       canvas.drawRect(Offset.zero & sz, Paint()..color = Color.fromARGB((dim * 255).round(), 43, 29, 20));

@@ -183,6 +183,10 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
       case EventKind.grab:
         play('thwip.wav');
         _haptic(HapticFeedback.selectionClick);
+      case EventKind.launch:
+        play('whoosh.wav');
+        play('boing.wav', volume: 0.5);
+        _haptic(HapticFeedback.mediumImpact);
       case EventKind.release:
         play('whoosh.wav', volume: 0.7);
       case EventKind.miss:

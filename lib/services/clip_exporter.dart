@@ -155,7 +155,7 @@ class ClipExporter {
     if (frame == null) {
       _endCard(canvas, size, f.endCard, died: died, caption: caption);
     } else {
-      c.renderer.render(canvas, size, frame, events: c.events, showTarget: false);
+      c.renderer.render(canvas, size, frame, events: c.events, showTarget: false, trail: c.trailAt(frame.s.t));
       if (f.slowMo) _slowMoBadge(canvas, size);
       _watermark(canvas, size);
     }
