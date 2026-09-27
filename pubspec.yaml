@@ -14,7 +14,7 @@ dependencies:
   # third_party/forge2d/PATCHES.md.
   forge2d:
     path: third_party/forge2d
-  flame_audio: ^2.12.2
+  audioplayers: ^6.8.1
   shared_preferences: ^2.5.5
   share_plus: ^13.3.0
   google_mobile_ads: ^9.1.0

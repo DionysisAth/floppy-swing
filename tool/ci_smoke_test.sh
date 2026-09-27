@@ -16,6 +16,23 @@ adb shell input tap $((W / 2)) $((H * 72 / 100))
 sleep 4
 adb exec-out screencap -p > smoke_2_after_tap.png
 
+# Audio must stop when the app goes to the background.
+APP_UID=$(adb shell pm list packages -U "$PKG" | sed -n 's/.*uid:\([0-9]*\).*/\1/p' | tr -d '\r')
+playing() { adb shell dumpsys audio | grep "u/pid:$APP_UID/" | grep -c "state:started" | tr -d '\r'; }
+BEFORE=$(playing)
+adb shell input keyevent KEYCODE_HOME
+sleep 4
+AFTER=$(playing)
+echo "Active audio players for uid $APP_UID: foreground=$BEFORE background=$AFTER"
+if [ "${BEFORE:-0}" -gt 0 ] && [ "${AFTER:-0}" -gt 0 ]; then
+  echo "::error::Audio keeps playing after pressing Home"
+  adb logcat -d > logcat.txt
+  exit 1
+fi
+adb shell am start -n "$PKG/.MainActivity" >/dev/null
+sleep 3
+adb exec-out screencap -p > smoke_3_resumed.png
+
 PID=$(adb shell pidof "$PKG" | tr -d '\r')
 adb logcat -d > logcat.txt
 echo "---- crash / flutter log ----"

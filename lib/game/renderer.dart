@@ -945,7 +945,12 @@ class WorldRenderer {
   TextPainter _text(String text, Color color, double size) {
     final key = '$text|${color.toARGB32()}|$size';
     return _textCache.putIfAbsent(key, () {
-      if (_textCache.length > 64) _textCache.clear();
+      if (_textCache.length > 64) {
+        for (final tp in _textCache.values) {
+          tp.dispose();
+        }
+        _textCache.clear();
+      }
       return TextPainter(
         text: TextSpan(
           text: text,
