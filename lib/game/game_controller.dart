@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'autopilot.dart';
 import 'config.dart';
+import 'cosmetics.dart';
 import 'course_builder.dart';
 import 'level.dart';
 import 'ragdoll.dart';
@@ -54,8 +55,8 @@ class EndlessResult {
 
 /// Receives gameplay events for audio and haptics.
 abstract class GameFeedback {
-  void onEvent(SimEvent event, Skin skin);
-  void onReplayStart(Skin skin);
+  void onEvent(SimEvent event, Skin skin, Loadout look);
+  void onReplayStart(Skin skin, Loadout look);
 }
 
 /// Stars and numbers for a finished run.
@@ -93,10 +94,13 @@ class GameController extends ChangeNotifier {
     required this.level,
     required this.cfg,
     required Skin skin,
+    Loadout look = const Loadout(),
     this.feedback,
     this.mode = PlayMode.campaign,
   }) : renderer = WorldRenderer(level, skin, endless: mode == PlayMode.endless),
-       _skin = skin {
+       _skin = skin,
+       _look = look {
+    renderer.look = look;
     _newSim(Simulation(level, cfg));
   }
 
@@ -116,6 +120,14 @@ class GameController extends ChangeNotifier {
     renderer.skin = s;
   }
 
+  Loadout _look;
+  Loadout get look => _look;
+  set look(Loadout l) {
+    _look = l;
+    renderer.look = l;
+    sim.dance = l.dance;
+  }
+
   late Simulation sim;
   GamePhase phase = GamePhase.ready;
   bool paused = false;
@@ -125,6 +137,14 @@ class GameController extends ChangeNotifier {
   int attempts = 1;
   bool revived = false;
   RunResult? result;
+
+  /// This run's torso path as (run time, x, y, angle) samples, saved as a
+  /// ghost when it beats the best time.
+  final List<double> _ghostRec = [];
+  Float32List get recordedGhost => Float32List.fromList(_ghostRec);
+
+  /// Ghost samples are taken every this many physics steps (15 Hz).
+  static const ghostEvery = 4;
 
   /// Endless: the run's score, set when it ends.
   EndlessResult? endlessResult;
@@ -173,7 +193,8 @@ class GameController extends ChangeNotifier {
   // ---------------------------------------------------------------- setup
 
   void _newSim(Simulation s) {
-    sim = s;
+    sim = s..dance = _look.dance;
+    _ghostRec.clear();
     _eventCursor = 0;
     _acc = 0;
     history.clear();
@@ -300,7 +321,7 @@ class GameController extends ChangeNotifier {
       case GamePhase.dying:
         if (phaseAge >= flailTime) {
           _replayClock = 0;
-          feedback?.onReplayStart(_skin);
+          feedback?.onReplayStart(_skin, _look);
           _setPhase(GamePhase.replay);
         }
       case GamePhase.replay:
@@ -325,7 +346,7 @@ class GameController extends ChangeNotifier {
     final evs = sim.events;
     while (_eventCursor < evs.length) {
       final e = evs[_eventCursor++];
-      feedback?.onEvent(e, _skin);
+      feedback?.onEvent(e, _skin, _look);
       if (e.kind == EventKind.death && phase != GamePhase.dying) {
         if (mode == PlayMode.endless) {
           endlessResult = EndlessResult(
@@ -350,6 +371,14 @@ class GameController extends ChangeNotifier {
       }
     }
     if (phase == GamePhase.ready && sim.startedAt != null) _setPhase(GamePhase.playing);
+    if (sim.startedAt != null && (sim.status == SimStatus.running || phase == GamePhase.won)) {
+      if (((sim.t - sim.startedAt!) / cfg.dt).round() % ghostEvery == 0 || phase == GamePhase.won) {
+        final torso = sim.ragdoll.torso;
+        if (_ghostRec.isEmpty || _ghostRec[_ghostRec.length - 4] < sim.runTime) {
+          _ghostRec.addAll([sim.runTime, torso.position.x, torso.position.y, torso.angle]);
+        }
+      }
+    }
     if (mode == PlayMode.endless && phase == GamePhase.playing) _trackEndless();
   }
 

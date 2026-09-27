@@ -47,6 +47,13 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 500));
+    // Daily login bonus comes first.
+    expect(find.text('DAILY BONUS'), findsOneWidget);
+    final coinsBefore = progress.coins;
+    await tester.tap(find.text('Claim'));
+    await frames(tester, 20);
+    expect(find.text('DAILY BONUS'), findsNothing);
+    expect(progress.coins, greaterThan(coinsBefore));
     expect(find.text('FLOPPY'), findsOneWidget);
     expect(find.byWidgetPredicate((w) => w is GameWidget), findsOneWidget, reason: 'attract-mode demo');
 

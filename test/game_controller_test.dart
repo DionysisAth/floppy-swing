@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:floppy_swing/game/cosmetics.dart';
 import 'package:floppy_swing/game/game_controller.dart';
 import 'package:floppy_swing/game/renderer.dart';
 import 'package:floppy_swing/game/simulation.dart';
@@ -13,10 +14,10 @@ class RecordingFeedback implements GameFeedback {
   int replays = 0;
 
   @override
-  void onEvent(SimEvent event, Skin skin) => events.add(event.kind);
+  void onEvent(SimEvent event, Skin skin, Loadout look) => events.add(event.kind);
 
   @override
-  void onReplayStart(Skin skin) => replays++;
+  void onReplayStart(Skin skin, Loadout look) => replays++;
 }
 
 void tickFor(GameController c, double seconds) {

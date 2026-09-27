@@ -11,11 +11,21 @@ abstract final class AdIds {
   static String get rewarded => Platform.isIOS
       ? 'ca-app-pub-3940256099942544/1712485313'
       : 'ca-app-pub-3940256099942544/5224354917';
+
+  static String get interstitial => Platform.isIOS
+      ? 'ca-app-pub-3940256099942544/4411468910'
+      : 'ca-app-pub-3940256099942544/1033173712';
 }
 
-/// Rewarded video ads: the player always chooses to watch them.
+/// Rewarded video ads (the player chooses to watch them) and occasional
+/// interstitials between levels (see [ProgressStore.interstitialDue]).
 abstract class AdsService extends ChangeNotifier {
   bool get rewardedReady;
+
+  bool get interstitialReady;
+
+  /// Shows an interstitial if one is loaded; completes when it closes.
+  Future<void> showInterstitial();
 
   /// Whether the privacy options entry point must be shown (GDPR).
   bool get privacyOptionsRequired;
@@ -38,6 +48,10 @@ class NoAdsService extends AdsService {
   @override
   bool get rewardedReady => grantRewards;
   @override
+  bool get interstitialReady => false;
+  @override
+  Future<void> showInterstitial() async {}
+  @override
   bool get privacyOptionsRequired => false;
   @override
   Future<void> init() async {}
@@ -51,6 +65,8 @@ class NoAdsService extends AdsService {
 /// on iOS, the App Tracking Transparency explainer configured in AdMob).
 class GoogleAdsService extends AdsService {
   RewardedAd? _rewarded;
+  InterstitialAd? _interstitial;
+  bool _loadingInterstitial = false;
   bool _loading = false;
   bool _canRequest = false;
   bool _privacyRequired = false;
@@ -58,6 +74,8 @@ class GoogleAdsService extends AdsService {
 
   @override
   bool get rewardedReady => _rewarded != null;
+  @override
+  bool get interstitialReady => _interstitial != null;
   @override
   bool get privacyOptionsRequired => _privacyRequired;
 
@@ -85,6 +103,7 @@ class GoogleAdsService extends AdsService {
     if (_canRequest) {
       await MobileAds.instance.initialize();
       _load();
+      _loadInterstitial();
     }
     notifyListeners();
   }
@@ -112,6 +131,51 @@ class GoogleAdsService extends AdsService {
         },
       ),
     );
+  }
+
+  void _loadInterstitial() {
+    if (_loadingInterstitial || _interstitial != null || !_canRequest) return;
+    _loadingInterstitial = true;
+    InterstitialAd.load(
+      adUnitId: AdIds.interstitial,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) {
+          _loadingInterstitial = false;
+          _interstitial = ad;
+        },
+        onAdFailedToLoad: (error) {
+          _loadingInterstitial = false;
+          debugPrint('Interstitial failed to load: ${error.message}');
+          Timer(const Duration(seconds: 60), _loadInterstitial);
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<void> showInterstitial() async {
+    final ad = _interstitial;
+    if (ad == null) {
+      _loadInterstitial();
+      return;
+    }
+    _interstitial = null;
+    final closed = Completer<void>();
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        if (!closed.isCompleted) closed.complete();
+        _loadInterstitial();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        if (!closed.isCompleted) closed.complete();
+        _loadInterstitial();
+      },
+    );
+    await ad.show();
+    return closed.future;
   }
 
   @override

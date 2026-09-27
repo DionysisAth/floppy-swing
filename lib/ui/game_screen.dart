@@ -72,10 +72,12 @@ class _GameScreenState extends State<GameScreen> {
       level: level,
       cfg: _services.physics,
       skin: skinById(_services.progress.selectedSkin),
+      look: _services.progress.loadout,
       feedback: _services.audio,
       mode: widget.mode,
     )..addListener(_onControllerChanged);
     _markBest();
+    if (_ghostKey != null) c.renderer.ghost = _services.progress.ghostFor(_ghostKey!);
     _game = FloppyGame(_controller!);
     GameScreen.debugLastController = _controller;
     _lastAttempt = c.attempts;
@@ -91,6 +93,12 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   bool get _endless => widget.mode == PlayMode.endless;
+
+  String? get _ghostKey => switch (widget.mode) {
+    PlayMode.campaign => 'L${widget.levelId}',
+    PlayMode.daily => 'D${widget.day}',
+    PlayMode.endless => null,
+  };
   bool get _daily => widget.mode == PlayMode.daily;
 
   void _markBest() {
@@ -121,6 +129,15 @@ class _GameScreenState extends State<GameScreen> {
       if (phase == GamePhase.ready) _modeReward = null;
       if (phase == GamePhase.won && c.result != null) {
         final r = c.result!;
+        final prevBest = _daily
+            ? _services.progress.dailyRecord(widget.day).bestTime
+            : _services.progress.record(c.level.id).bestTime;
+        final key = _ghostKey;
+        if (key != null && !r.revived && (prevBest == null || r.time < prevBest)) {
+          final ghost = c.recordedGhost;
+          _services.progress.saveGhost(key, ghost);
+          c.renderer.ghost = ghost;
+        }
         if (_daily) {
           _modeReward = _services.progress.recordDaily(widget.day, r);
         } else {
@@ -128,7 +145,7 @@ class _GameScreenState extends State<GameScreen> {
         }
         _doubled = false;
         _services.analytics.levelComplete(c.level.id, r.time, r.starCount, c.attempts);
-        Future<void>.delayed(const Duration(milliseconds: 900), () {
+        Future<void>.delayed(const Duration(milliseconds: 1400), () {
           if (mounted && c.phase == GamePhase.won) setState(() => _showWin = true);
         });
       }
@@ -186,6 +203,22 @@ class _GameScreenState extends State<GameScreen> {
     if (_services.progress.spend(_services.economy.reviveCost)) c.revive();
   }
 
+  void _reviveWithGems() {
+    if (_services.progress.spendGems(_services.economy.reviveGems)) c.revive();
+  }
+
+  /// Offered on a campaign level that keeps beating the player.
+  bool get _canSkip =>
+      widget.mode == PlayMode.campaign &&
+      c.attempts >= _services.economy.skipAfterAttempts &&
+      !_services.progress.record(c.level.id).completed;
+
+  void _skip() {
+    if (!_services.progress.skipLevel(c.level.id)) return;
+    _services.analytics.levelSkipped(c.level.id);
+    _next();
+  }
+
   Future<void> _doubleCoins() async {
     final reward = _reward;
     if (reward == null || _doubled) return;
@@ -196,7 +229,16 @@ class _GameScreenState extends State<GameScreen> {
     setState(() => _doubled = true);
   }
 
-  void _next() {
+  Future<void> _next() async {
+    // Between levels (never after a fail) is the only place for an
+    // interstitial.
+    final progress = _services.progress;
+    if (widget.mode == PlayMode.campaign && progress.interstitialDue && _services.ads.interstitialReady) {
+      _services.analytics.interstitialShown(progress.levelsSinceAd);
+      progress.interstitialShown();
+      await _services.ads.showInterstitial();
+      if (!mounted) return;
+    }
     final next = widget.mode == PlayMode.campaign ? _services.levelById(widget.levelId + 1) : null;
     if (next == null || !_services.progress.isUnlocked(next.id)) {
       Navigator.of(context).pop();
@@ -309,6 +351,8 @@ class _GameScreenState extends State<GameScreen> {
                       fontSize: 20,
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     ),
+                  if (_canSkip && progress.gems >= _services.economy.skipGems)
+                    _gemButton('Skip level', _services.economy.skipGems, _skip),
                   if (c.canRevive) ...[
                     ListenableBuilder(
                       listenable: ads,
@@ -322,6 +366,8 @@ class _GameScreenState extends State<GameScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                       ),
                     ),
+                    if (progress.gems >= _services.economy.reviveGems)
+                      _gemButton('Revive', _services.economy.reviveGems, _reviveWithGems),
                     ChunkyButton(
                       onPressed: progress.coins >= cost ? _reviveWithCoins : null,
                       color: AppColors.yellow,
@@ -345,6 +391,21 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
   }
+
+  Widget _gemButton(String label, int gems, VoidCallback onPressed) => ChunkyButton(
+    onPressed: onPressed,
+    color: const Color(0xFF3FD0FF),
+    shade: const Color(0xFF1C9AD6),
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('$label ', style: display(20)),
+        const GemIcon(size: 20),
+        Text(' $gems', style: display(20)),
+      ],
+    ),
+  );
 
   Widget _endlessCard(EndlessResult r) {
     final reward = _modeReward;

@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../game/cosmetics.dart';
 import '../game/game_controller.dart';
 import '../game/simulation.dart';
 import '../game/skins.dart';
@@ -213,7 +214,7 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
   // ------------------------------------------------------------ feedback
 
   @override
-  void onEvent(SimEvent e, Skin skin) {
+  void onEvent(SimEvent e, Skin skin, Loadout look) {
     switch (e.kind) {
       case EventKind.grab:
         play('thwip.wav');
@@ -243,6 +244,16 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
         if (cause == DeathCause.saw) play('zing.wav');
         play('${skin.failSound}.wav');
         play('yelp.wav', volume: 0.8);
+        switch (look.failEffect) {
+          case 'squeaky':
+            play('squeak.wav');
+          case 'coinpile':
+            play('coin.wav');
+            Future<void>.delayed(const Duration(milliseconds: 120), () => play('coin.wav', minGap: 0));
+          case 'confetti':
+            play('pop.wav');
+            play('win.wav', volume: 0.4);
+        }
         _haptic(HapticFeedback.heavyImpact);
       case EventKind.finish:
         play('win.wav');
@@ -265,9 +276,10 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
   }
 
   @override
-  void onReplayStart(Skin skin) {
+  void onReplayStart(Skin skin, Loadout look) {
     play('slowmo.wav', volume: 0.8);
     // The punchline gets a second, slow-motion helping.
-    Future<void>.delayed(const Duration(milliseconds: 750), () => play('${skin.failSound}.wav', volume: 0.8));
+    final punchline = look.failEffect == 'squeaky' ? 'squeak' : skin.failSound;
+    Future<void>.delayed(const Duration(milliseconds: 750), () => play('$punchline.wav', volume: 0.8));
   }
 }

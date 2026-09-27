@@ -220,6 +220,21 @@ class EconomyConfig {
     this.dailyCoins = 60,
     this.dailyGems = 3,
     this.dailyStreakGems = 10,
+    this.reviveGems = 3,
+    this.skipGems = 10,
+    this.skipAfterAttempts = 5,
+    this.interstitialEvery = 3,
+    this.interstitialFromLevel = 8,
+    this.interstitialMinSeconds = 120,
+    this.loginRewards = const [
+      (coins: 40, gems: 0),
+      (coins: 60, gems: 0),
+      (coins: 0, gems: 3),
+      (coins: 100, gems: 0),
+      (coins: 120, gems: 0),
+      (coins: 0, gems: 5),
+      (coins: 150, gems: 10),
+    ],
   });
 
   factory EconomyConfig.fromJson(Map<String, dynamic> m) => EconomyConfig(
@@ -231,6 +246,21 @@ class EconomyConfig {
     dailyCoins: (m['dailyCoins'] as num?)?.toInt() ?? 60,
     dailyGems: (m['dailyGems'] as num?)?.toInt() ?? 3,
     dailyStreakGems: (m['dailyStreakGems'] as num?)?.toInt() ?? 10,
+    reviveGems: (m['reviveGems'] as num?)?.toInt() ?? 3,
+    skipGems: (m['skipGems'] as num?)?.toInt() ?? 10,
+    skipAfterAttempts: (m['skipAfterAttempts'] as num?)?.toInt() ?? 5,
+    interstitialEvery: (m['interstitialEvery'] as num?)?.toInt() ?? 3,
+    interstitialFromLevel: (m['interstitialFromLevel'] as num?)?.toInt() ?? 8,
+    interstitialMinSeconds: (m['interstitialMinSeconds'] as num?)?.toInt() ?? 120,
+    loginRewards: m['loginRewards'] == null
+        ? const EconomyConfig().loginRewards
+        : [
+            for (final r in m['loginRewards'] as List)
+              (
+                coins: ((r as Map)['coins'] as num?)?.toInt() ?? 0,
+                gems: (r['gems'] as num?)?.toInt() ?? 0,
+              ),
+          ],
     skinPrices: {
       for (final e
           in ((m['skinPrices'] as Map<String, dynamic>?) ?? const {}).entries)
@@ -265,4 +295,21 @@ class EconomyConfig {
 
   /// Extra gems for every 7th day in a row the Daily Challenge is cleared.
   final int dailyStreakGems;
+
+  /// Gem price of a checkpoint revive (the coin price is [reviveCost]).
+  final int reviveGems;
+
+  /// Gem price to skip a campaign level, offered after this many attempts.
+  final int skipGems;
+  final int skipAfterAttempts;
+
+  /// Interstitials: at most one every [interstitialEvery] level wins and
+  /// [interstitialMinSeconds], never before the player has finished level
+  /// [interstitialFromLevel], and never right after a fail.
+  final int interstitialEvery;
+  final int interstitialFromLevel;
+  final int interstitialMinSeconds;
+
+  /// Daily login calendar: day 1..n of a login streak (then it repeats).
+  final List<({int coins, int gems})> loginRewards;
 }

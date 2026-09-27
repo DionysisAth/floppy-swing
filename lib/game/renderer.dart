@@ -1,14 +1,17 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
 
+import 'cosmetics.dart';
 import 'course_builder.dart';
 import 'level.dart';
 import 'ragdoll.dart';
 import 'simulation.dart';
 import 'skins.dart';
 
+part 'renderer_cosmetics.dart';
 part 'renderer_worlds.dart';
 
 /// Camera: centre point and visible width, all in meters.
@@ -209,12 +212,19 @@ class WorldRenderer {
   final bool endless;
   WorldTheme theme;
 
+  /// Equipped rope, trail and fail effect.
+  Loadout look = const Loadout();
+
   /// The next zone's theme, faded in over the end of an endless zone.
   WorldTheme? _nextTheme;
   double _nextFade = 0;
 
   /// World x of the player's best Endless distance, marked with a flag.
   double? bestX;
+
+  /// Best run's torso path, (run time, x, y, angle) per sample, drawn as a
+  /// see-through ghost to race against.
+  Float32List? ghost;
   Skin skin;
   final ({double minX, double maxX, double minY}) _extent;
   final Map<String, TextPainter> _textCache = {};
@@ -350,14 +360,57 @@ class WorldRenderer {
       if (_visible(view, c.x, c.y, 1)) _drawCoin(canvas, c.x, c.y, wt, i);
     }
 
-    if (trail != null && trail.length > 2) _drawTrail(canvas, trail);
-    if (s.ropeAnchor >= 0) _drawRope(canvas, s, events, time);
+    if (trail != null && trail.length > 2) drawTrailStyled(canvas, trail, wt, look.trail);
+    if (s.ropeAnchor >= 0) _drawRope(canvas, s, events, time, wt);
+    final g = ghost;
+    if (g != null && g.length >= 8 && s.runTime > 0) _drawGhost(canvas, g, s.runTime);
     drawRagdoll(canvas, s, skin, wt);
     _drawEffects(canvas, events, time);
     canvas.restore();
 
     _drawSpeedLines(canvas, size, s, wt);
     _drawVignette(canvas, size);
+  }
+
+  void _drawGhost(Canvas canvas, Float32List g, double t) {
+    final n = g.length ~/ 4;
+    if (t > g[(n - 1) * 4] + 1.5) return;
+    // Binary search for the sample pair around t.
+    var lo = 0, hi = n - 1;
+    while (hi - lo > 1) {
+      final mid = (lo + hi) >> 1;
+      if (g[mid * 4] <= t) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    final t0 = g[lo * 4], t1 = g[hi * 4];
+    final f = t1 > t0 ? ((t - t0) / (t1 - t0)).clamp(0.0, 1.0) : 1.0;
+    double at(int k) => g[lo * 4 + k] + (g[hi * 4 + k] - g[lo * 4 + k]) * f;
+    final x = at(1), y = at(2), a = at(3);
+    canvas.save();
+    canvas.translate(x, y);
+    canvas.rotate(a);
+    _fill.color = const Color(0x66FFFFFF);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 0.5, height: 0.9), const Radius.circular(0.25)),
+      _fill,
+    );
+    canvas.drawCircle(const Offset(0, -0.8), 0.34, _fill);
+    _stroke
+      ..color = const Color(0x99FFFFFF)
+      ..strokeWidth = 0.05;
+    canvas.drawCircle(const Offset(0, -0.8), 0.34, _stroke);
+    // Arms and legs as simple strokes.
+    _stroke
+      ..color = const Color(0x66FFFFFF)
+      ..strokeWidth = 0.16;
+    canvas.drawLine(const Offset(0, -0.3), const Offset(0.45, 0.1), _stroke);
+    canvas.drawLine(const Offset(0, -0.3), const Offset(-0.45, 0.1), _stroke);
+    canvas.drawLine(const Offset(0.1, 0.4), const Offset(0.2, 1.1), _stroke);
+    canvas.drawLine(const Offset(-0.1, 0.4), const Offset(-0.2, 1.1), _stroke);
+    canvas.restore();
   }
 
   /// Where anchor [i] is in [s] (snapshots built by hand may not carry
@@ -1183,19 +1236,6 @@ class WorldRenderer {
   }
 
   /// Faded ribbon along the torso's recent path.
-  void _drawTrail(Canvas canvas, List<Offset> trail) {
-    final n = trail.length;
-    for (var i = 1; i < n; i++) {
-      final t = i / (n - 1);
-      final seg = trail[i] - trail[i - 1];
-      if (seg.distance < 0.02) continue;
-      _stroke
-        ..color = Palette.white.withValues(alpha: 0.5 * t * t)
-        ..strokeWidth = 0.08 + 0.3 * t;
-      canvas.drawLine(trail[i - 1], trail[i], _stroke);
-    }
-  }
-
   void _withBox(Canvas canvas, Box b, void Function() draw) {
     canvas.save();
     canvas.translate(b.x, b.y);
@@ -1287,6 +1327,7 @@ class WorldRenderer {
     Snapshot s,
     List<SimEvent> events,
     double time,
+    double wt,
   ) {
     final a = _anchorPos(s, s.ropeAnchor);
     final hand = handPosition(s);
@@ -1295,14 +1336,7 @@ class WorldRenderer {
     final since = _since(events, EventKind.grab, time, s.ropeAnchor.toDouble());
     if (since != null && since < 0.09) {
       final tip = Offset.lerp(hand, anchor, (since / 0.09).clamp(0.15, 1.0))!;
-      _stroke
-        ..color = Palette.ink
-        ..strokeWidth = 0.16;
-      canvas.drawLine(hand, tip, _stroke);
-      _stroke
-        ..color = const Color(0xFFD9A066)
-        ..strokeWidth = 0.09;
-      canvas.drawLine(hand, tip, _stroke);
+      drawRopeStyled(canvas, hand, Offset.lerp(hand, tip, 0.5)!, tip, wt, look.rope);
       _star(canvas, tip.dx, tip.dy, 0.3, Palette.white);
       return;
     }
@@ -1311,43 +1345,7 @@ class WorldRenderer {
     final slack = math.max(0.0, s.ropeLength - dist);
     final sag = math.min(2.0, math.sqrt(slack * dist) * 0.5);
     final mid = Offset((a.x + hand.dx) / 2, (a.y + hand.dy) / 2 + sag);
-    final path = Path()
-      ..moveTo(hand.dx, hand.dy)
-      ..quadraticBezierTo(mid.dx, mid.dy, a.x, a.y);
-    _stroke
-      ..color = Palette.ink
-      ..strokeWidth = 0.17;
-    canvas.drawPath(path, _stroke);
-    _stroke
-      ..color = const Color(0xFFC98E52)
-      ..strokeWidth = 0.1;
-    canvas.drawPath(path, _stroke);
-    // Twisted-rope stripes.
-    _stroke
-      ..color = const Color(0xFF8A5A2E)
-      ..strokeWidth = 0.035;
-    final steps = (dist / 0.28).clamp(2, 60).round();
-    for (var i = 1; i < steps; i++) {
-      final t = i / steps;
-      final u = 1 - t;
-      final p = Offset(
-        u * u * hand.dx + 2 * u * t * mid.dx + t * t * a.x,
-        u * u * hand.dy + 2 * u * t * mid.dy + t * t * a.y,
-      );
-      final tan = Offset(
-        2 * u * (mid.dx - hand.dx) + 2 * t * (a.x - mid.dx),
-        2 * u * (mid.dy - hand.dy) + 2 * t * (a.y - mid.dy),
-      );
-      final len = tan.distance;
-      if (len < 1e-6) continue;
-      final d = tan / len;
-      final nrm = Offset(-d.dy, d.dx);
-      canvas.drawLine(
-        p - nrm * 0.045 - d * 0.04,
-        p + nrm * 0.045 + d * 0.04,
-        _stroke,
-      );
-    }
+    drawRopeStyled(canvas, hand, mid, anchor, wt, look.rope);
   }
 
   static Offset handPosition(Snapshot s) {
@@ -1484,6 +1482,34 @@ class WorldRenderer {
           ),
           _fill,
         );
+      case Accessory.pirate:
+        // Stripy shirt and a red sash.
+        _fill.color = const Color(0xFF2E4A8C);
+        for (var k = 0; k < 3; k++) {
+          final y = -spec.hh * 0.7 + k * spec.hh * 0.45;
+          canvas.drawRect(Rect.fromLTRB(-spec.hw, y, spec.hw, y + spec.hh * 0.16), _fill);
+        }
+        _fill.color = const Color(0xFFE63946);
+        canvas.drawRect(Rect.fromLTRB(-spec.hw * 1.05, spec.hh * 0.4, spec.hw * 1.05, spec.hh * 0.62), _fill);
+      case Accessory.robot:
+        _fill.color = const Color(0xFF4A5563);
+        final panel = Rect.fromCenter(center: Offset(0, -spec.hh * 0.1), width: spec.hw * 1.1, height: spec.hh * 0.7);
+        canvas.drawRRect(RRect.fromRectAndRadius(panel, const Radius.circular(0.04)), _fill);
+        _fill.color = const Color(0xFF38D66B);
+        canvas.drawCircle(panel.center + Offset(-spec.hw * 0.25, 0), 0.045, _fill);
+        _fill.color = const Color(0xFFFFD23F);
+        canvas.drawCircle(panel.center + Offset(spec.hw * 0.25, 0), 0.045, _fill);
+      case Accessory.dino:
+        _fill.color = const Color(0xFFD8F5B8);
+        canvas.drawOval(
+          Rect.fromCenter(center: Offset(spec.hw * 0.3, spec.hh * 0.05), width: spec.hw * 0.9, height: spec.hh * 1.3),
+          _fill,
+        );
+      case Accessory.wizard:
+        _fill.color = const Color(0xFFFFD23F);
+        for (final o in [Offset(-spec.hw * 0.3, -spec.hh * 0.4), Offset(spec.hw * 0.35, spec.hh * 0.1)]) {
+          _star(canvas, o.dx, o.dy, 0.07, const Color(0xFFFFD23F));
+        }
       case Accessory.hair:
       case Accessory.banana:
       case Accessory.chicken:
@@ -1512,6 +1538,29 @@ class WorldRenderer {
     final headAngle = s.pa(i);
 
     // Behind-head accessories.
+    if (skin.accessory == Accessory.dino) {
+      _fill.color = const Color(0xFF3E8A2C);
+      for (var k = 0; k < 4; k++) {
+        final a = -2.6 + k * 0.45;
+        final base = Offset(math.cos(a), math.sin(a)) * r * 0.9;
+        final tip = Offset(math.cos(a), math.sin(a)) * r * 1.45;
+        final side = Offset(-math.sin(a), math.cos(a)) * r * 0.2;
+        canvas.drawPath(
+          Path()
+            ..moveTo(base.dx - side.dx, base.dy - side.dy)
+            ..lineTo(tip.dx, tip.dy)
+            ..lineTo(base.dx + side.dx, base.dy + side.dy)
+            ..close(),
+          _fill,
+        );
+      }
+    }
+    if (skin.accessory == Accessory.pirate) {
+      // Bandana knot tails.
+      _fill.color = const Color(0xFFE63946);
+      final flap = math.sin(wt * 12) * 0.05;
+      canvas.drawOval(Rect.fromCenter(center: Offset(-r * 1.15, -r * 0.35 + flap), width: r * 0.6, height: r * 0.3), _fill);
+    }
     if (skin.accessory == Accessory.ninja) {
       _stroke
         ..color = const Color(0xFFE63946)
@@ -1576,8 +1625,28 @@ class WorldRenderer {
         );
         _fill.color = const Color(0xFFE63946);
         canvas.drawRect(Rect.fromLTRB(-r, -r * 0.75, r, -r * 0.5), _fill);
+      case Accessory.pirate:
+        _fill.color = const Color(0xFFE63946);
+        canvas.drawPath(
+          Path()
+            ..addArc(Rect.fromCircle(center: Offset.zero, radius: r * 1.02), math.pi * 1.05, math.pi * 0.95)
+            ..lineTo(r, -r * 0.3)
+            ..lineTo(-r, -r * 0.3)
+            ..close(),
+          _fill,
+        );
+        _fill.color = Palette.white;
+        canvas.drawCircle(Offset(-r * 0.2, -r * 0.7), r * 0.08, _fill);
+        canvas.drawCircle(Offset(r * 0.35, -r * 0.6), r * 0.08, _fill);
+      case Accessory.robot:
+        _stroke
+          ..color = const Color(0xFF6E7C8C)
+          ..strokeWidth = 0.04;
+        canvas.drawLine(Offset(-r * 0.8, r * 0.45), Offset(r * 0.9, r * 0.45), _stroke);
       case Accessory.knight:
       case Accessory.astronaut:
+      case Accessory.dino:
+      case Accessory.wizard:
         break;
     }
 
@@ -1630,6 +1699,56 @@ class WorldRenderer {
             ..close(),
           _fill,
         );
+      case Accessory.pirate:
+        // Eye patch over the front eye, and a gold earring.
+        _stroke
+          ..color = Palette.ink
+          ..strokeWidth = 0.035;
+        canvas.drawLine(Offset(-r * 0.9, -r * 0.55), Offset(r * 0.95, r * 0.05), _stroke);
+        _fill.color = Palette.ink;
+        canvas.drawOval(Rect.fromCenter(center: Offset(r * 0.55, -r * 0.15), width: r * 0.5, height: r * 0.42), _fill);
+        _stroke
+          ..color = const Color(0xFFFFC21A)
+          ..strokeWidth = 0.03;
+        canvas.drawCircle(Offset(-r * 0.1, r * 0.75), r * 0.14, _stroke);
+      case Accessory.robot:
+        _stroke
+          ..color = const Color(0xFF4A5563)
+          ..strokeWidth = 0.04;
+        canvas.drawLine(Offset(0, -r), Offset(0, -r * 1.55), _stroke);
+        final blink = math.sin(wt * 5) > 0;
+        _fill.color = blink ? const Color(0xFFFF4040) : const Color(0xFFB02020);
+        canvas.drawCircle(Offset(0, -r * 1.6), r * 0.16, _fill);
+        _fill.color = const Color(0xFF6E7C8C);
+        canvas.drawCircle(Offset(-r * 0.95, 0), r * 0.18, _fill);
+      case Accessory.dino:
+        _fill.color = Palette.ink;
+        canvas.drawCircle(Offset(r * 0.95, r * 0.05), r * 0.05, _fill);
+      case Accessory.wizard:
+        // Beard, then a tall starry hat.
+        _fill.color = const Color(0xFFF4F4F4);
+        canvas.drawPath(
+          Path()
+            ..moveTo(-r * 0.2, r * 0.35)
+            ..quadraticBezierTo(r * 0.3, r * 1.9, r * 0.95, r * 0.25)
+            ..close(),
+          _fill,
+        );
+        _fill.color = const Color(0xFF6A4BC4);
+        canvas.drawPath(
+          Path()
+            ..moveTo(-r * 1.15, -r * 0.45)
+            ..lineTo(r * 1.1, -r * 0.45)
+            ..lineTo(-r * 0.3, -r * 2.4)
+            ..close(),
+          _fill,
+        );
+        _fill.color = const Color(0xFF503796);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromLTRB(-r * 1.3, -r * 0.6, r * 1.25, -r * 0.35), Radius.circular(r * 0.1)),
+          _fill,
+        );
+        _star(canvas, -r * 0.1, -r * 1.2, r * 0.22, const Color(0xFFFFD23F));
       case Accessory.hair:
       case Accessory.banana:
       case Accessory.ninja:
@@ -1804,14 +1923,14 @@ class WorldRenderer {
           }
         case EventKind.death:
           if (age < 0.8) {
-            _burst(canvas, e.x, e.y, age / 0.8, idx);
-            _comicText(
+            drawFailEffect(
               canvas,
-              _deathWord(e.value.toInt()),
               e.x,
-              e.y - 1.6,
+              e.y,
               age / 0.8,
-              1.3,
+              idx,
+              look.failEffect,
+              _deathWord(e.value.toInt()),
             );
           }
         case EventKind.style:

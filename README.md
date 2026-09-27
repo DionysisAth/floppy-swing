@@ -9,7 +9,10 @@ shared as vertical clips.
 |---|---|---|---|---|---|
 | ![](docs/screenshots/1_menu.png) | ![](docs/screenshots/2_levels.png) | ![](docs/screenshots/4_swinging.png) | ![](docs/screenshots/7_replay.png) | ![](docs/screenshots/9_won.png) | ![](docs/screenshots/6_shop.png) |
 
-This is the **MVP milestone** from the design document (section 15).
+This covers the design document's MVP plus the next milestones: Worlds 2–5,
+Endless mode, the Daily Challenge, and the economy and cosmetics. What's
+left needs accounts and servers: real-money purchases, online leaderboards,
+cloud save, friend ghosts and Fail of the Week.
 
 ## What's in the game
 
@@ -24,14 +27,22 @@ This is the **MVP milestone** from the design document (section 15).
   - World 3 **Glass City** (40 stars): glass that smashes when you hit it fast enough, and pads.
   - World 4 **Sky Islands** (70 stars): wind fans that blow you up or along, and zones that flip gravity.
   - World 5 **Rocket Base** (100 stars): platforms that crumble after you touch them, and rockets that knock you flying.
+- **Endless mode:** one generated 3 km course per run. Every 180 m a new zone brings in the next world's mechanics, look (cross-faded) and music, and difficulty keeps rising. Score is distance plus style, a flag marks your best distance, and there are no revives. Tap to retry the same course, or ask for a new one.
+- **Daily Challenge:** a new bot-verified level every day (a pool of 60, themed on each world in turn). The first clear of the day pays coins and gems, clearing it on consecutive days builds a streak (bonus gems every 7th day), and your best time per day is kept. No revives, so scores stay fair.
 - **World select:** swipe between worlds. A world opens when you have its stars and have finished the world before it.
 - **Instant retry:** tap during or after a fail to restart. There are no menus in between, and rebuilding the physics world takes about 1–2 ms.
 - **Slow-motion fail replay:** a zoomed 0.4× replay with a comic burst and a second helping of the fail sound. Tap to skip.
 - **Share clip:** a 720×1280 (9:16) MP4 of the last few seconds plus the slow-mo replay, with a watermark and a "Can you do better?" end card, shared through the native share sheet.
 - **Stars** (finish, target time, all coins), **coins**, and **style points** (flips, close calls, hang time, big swings, combos).
-- **6 skins**: 1 free and 5 unlockable with coins. Each has its own fail sound.
-- **Rewarded ads:** revive at a checkpoint (or pay coins), and double coins after a level. There are no interstitials, and never an ad right after a fail.
-- Menu with an attract-mode demo (the autopilot plays level 1), world and level select, skins shop, settings (music and SFX volume, mute, vibration, privacy options, reset).
+- **Shop:** 6 skins (1 free, 5 for coins, each with its own fail sound), plus rope styles (chain, spaghetti, rainbow, laser), trails (sparkles, bubbles, fire), fail effects (squeaky toy, confetti, a jackpot of coins) and victory dances (backflip, tornado, wacky flail), all with live previews. Everything is cosmetic.
+- **Collections:** own every item in a set (e.g. all ropes) to claim a gem bonus.
+- **Gems:** the premium currency, earned for now from the daily bonus, daily challenges, collections and the Season Pass. They buy premium cosmetics, revives, the premium pass, and level skips.
+- **Daily bonus:** a 7-day login calendar with coins and gems; missing a day restarts it.
+- **Season Pass:** 7-week themed seasons (Pirate Plunder, Robo Rumble, Dino Days, Wizard Weeks) with 20 tiers of XP from finishing levels, dailies, Endless runs and logging in. The free track has coins, gems and an exclusive trail; the premium track (250 gems for now) has more, topped by an exclusive skin.
+- **Ghost:** your best run on each level and daily is saved and replayed as a see-through ghost to race.
+- **Level skip:** after 5 attempts at a campaign level you can skip it for gems. It unlocks the next level but earns no stars.
+- **Ads:** rewarded videos to revive at a checkpoint and to double coins. Interstitials only show when leaving a won level, at most every 3 wins and 2 minutes, never before level 8, and never after a fail. A "remove ads" flag is ready for when purchases exist.
+- Menu with an attract-mode demo (the autopilot plays level 1), world and level select, shop, Season Pass, settings (music and SFX volume, mute, vibration, privacy options, reset).
 - Generated sound effects and a chiptune track per world (`tool/gen_audio.py`), plus haptics.
 
 ## Tech choices (the doc's open decisions)
@@ -61,11 +72,15 @@ lib/
     simulation.dart   Headless, deterministic physics sim: rope, hazards, pickups, style
     ragdoll.dart      Ragdoll body parts and joints
     level.dart        Level model / JSON format
+    course_builder.dart  Segment-based course generator (campaign, daily, endless)
+    cosmetics.dart    Ropes, trails, fail effects, dances, collections
+    season.dart       Season Pass themes, tiers and rewards
     worlds.dart       World names, star gates, colours
     config.dart       Physics + economy config (loaded from JSON)
     game_controller.dart  Fixed-step loop, camera, phases, retry, replay, revive
     renderer.dart     Draws a frame (used for live play, replays and clip export)
     renderer_worlds.dart  World 2-5 themes, backdrops and mechanic art
+    renderer_cosmetics.dart  Rope, trail and fail-effect styles
     autopilot.dart    Bot player (level verification + menu demo)
     skins.dart        Skin catalogue
     floppy_game.dart  Thin Flame wrapper
@@ -75,6 +90,7 @@ assets/
   config/physics.json   <- tune the feel here
   config/economy.json
   levels/level_XXX.json  1-15 hand-made, 16-100 generated
+  daily/daily_XXX.json   Daily Challenge pool
   audio/, fonts/
 android/.../VideoEncoderPlugin.kt   MediaCodec MP4 encoder for clips
 ios/Runner/AppDelegate.swift        AVAssetWriter MP4 encoder for clips
@@ -122,6 +138,7 @@ the world's mechanic; the coin trail then follows that run.
 ```bash
 dart run tool/gen_levels.dart          # regenerate 16-100
 dart run tool/gen_levels.dart 42 43    # just these ids
+dart run tool/gen_levels.dart --daily  # regenerate the Daily Challenge pool
 ```
 
 Regenerating overwrites hand edits to those files.
@@ -161,6 +178,7 @@ Worlds 2–5 add:
 - A moving anchor is `[x, y, toX, toY, periodSeconds, phase]` and ping-pongs between the two points.
 - Winds are `[cx, cy, w, h, angleDeg, strength]`, where angle 0 blows up.
 - Rocket angles are in degrees; -90 fires straight up.
+- `"world": 3` themes a level outside the campaign (daily levels) like that world.
 
 Rules the tests enforce: the first anchor must be reachable from the start
 platform, and every checkpoint needs an anchor in reach, because revives spawn
@@ -168,7 +186,10 @@ there.
 
 ## Before releasing
 
-- **Ads:** the AdMob ids are Google's public *test* ids. Replace them in
+- **Economy:** all prices and rewards (coins, gems, login calendar, ad pacing)
+  are in `assets/config/economy.json`; cosmetic prices are in
+  `lib/game/cosmetics.dart` and Season Pass rewards in `lib/game/season.dart`.
+- **Ads:** the AdMob ids (rewarded and interstitial) are Google's public *test* ids. Replace them in
   `lib/services/ads_service.dart`, `AndroidManifest.xml` and `ios/Runner/Info.plist`
   (`GADApplicationIdentifier`). Configure the GDPR and IDFA messages in AdMob's
   Privacy & messaging, which the app already shows through UMP.
@@ -178,8 +199,14 @@ there.
 - **Analytics:** `lib/services/analytics.dart` only logs for now. Plug in
   Firebase or similar there.
 
-## Not in the MVP (next milestones)
+## Next milestone: online features and purchases
 
-Gems and real-money IAP, Season Pass, Daily Challenge and leaderboards, Endless
-mode, Friend Ghosts, Fail of the Week, interstitial ads, cloud
-save, and paid fail effects and trails.
+These need developer accounts or a backend, so they aren't built yet:
+
+- **Real-money purchases:** gem packs, the Starter Pack, "Remove ads" (sets
+  `ProgressStore.adsRemoved`) and buying the premium pass with money instead
+  of gems. Needs App Store Connect and Play Console products.
+- **Online leaderboards** for the Daily Challenge and Endless (scores are
+  local now), and **cloud save** (the save is already one JSON blob).
+- **Friend Ghosts** (the ghost format is ready; it needs a way to share runs)
+  and **Fail of the Week**.

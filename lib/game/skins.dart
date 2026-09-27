@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 /// Extra decoration drawn on top of the basic ragdoll.
-enum Accessory { hair, banana, knight, astronaut, chicken, ninja }
+enum Accessory { hair, banana, knight, astronaut, chicken, ninja, pirate, robot, dino, wizard }
 
 /// A character skin: colours for each body part plus an accessory.
 class Skin {
@@ -18,6 +18,7 @@ class Skin {
     required this.accessory,
     this.outline = const Color(0xFF2B1D14),
     this.failSound = 'bonk',
+    this.exclusive = false,
   });
 
   final String id;
@@ -36,6 +37,9 @@ class Skin {
 
   /// Sound played on the fail impact (fails are what get shared!).
   final String failSound;
+
+  /// Only from the Season Pass (never sold for coins).
+  final bool exclusive;
 }
 
 const skins = <Skin>[
@@ -115,6 +119,63 @@ const skins = <Skin>[
     sleeves: Color(0xFF2B2D42),
     accessory: Accessory.ninja,
     outline: Color(0xFF0B0B10),
+  ),
+  // Season Pass exclusives.
+  Skin(
+    id: 'pirate',
+    name: 'Captain Flop',
+    price: 0,
+    tagline: 'Yo ho, oh no.',
+    shirt: Color(0xFFF4F1E8),
+    pants: Color(0xFF3B3355),
+    skin: Color(0xFFE8B98E),
+    shoes: Color(0xFF3B2A1A),
+    sleeves: Color(0xFFF4F1E8),
+    accessory: Accessory.pirate,
+    failSound: 'yelp',
+    exclusive: true,
+  ),
+  Skin(
+    id: 'robot',
+    name: 'Robo-Noodle',
+    price: 0,
+    tagline: 'Beep. Boop. Bonk.',
+    shirt: Color(0xFF9AA8B8),
+    pants: Color(0xFF6E7C8C),
+    skin: Color(0xFFC9D3DD),
+    shoes: Color(0xFF4A5563),
+    sleeves: Color(0xFF9AA8B8),
+    accessory: Accessory.robot,
+    failSound: 'clang',
+    exclusive: true,
+  ),
+  Skin(
+    id: 'dino',
+    name: 'Dino-Mite',
+    price: 0,
+    tagline: 'Tiny arms. Big swings.',
+    shirt: Color(0xFF6BCB4E),
+    pants: Color(0xFF4FA83A),
+    skin: Color(0xFF7FD95F),
+    shoes: Color(0xFF3E8A2C),
+    sleeves: Color(0xFF6BCB4E),
+    accessory: Accessory.dino,
+    failSound: 'squeak',
+    exclusive: true,
+  ),
+  Skin(
+    id: 'wizard',
+    name: 'Flopdalf',
+    price: 0,
+    tagline: 'You shall not... oops.',
+    shirt: Color(0xFF6A4BC4),
+    pants: Color(0xFF503796),
+    skin: Color(0xFFFFD2A8),
+    shoes: Color(0xFF3B2A1A),
+    sleeves: Color(0xFF6A4BC4),
+    accessory: Accessory.wizard,
+    failSound: 'whistle',
+    exclusive: true,
   ),
 ];
 

@@ -30,4 +30,7 @@ class Analytics {
   void adRewarded(String placement) => log('ad_rewarded', {'placement': placement});
   void clipShared(String kind) => log('clip_shared', {'kind': kind});
   void skinBought(String id) => log('skin_bought', {'id': id});
+  void levelSkipped(int level) => log('level_skipped', {'level': level});
+  void interstitialShown(int levelsSinceLast) => log('interstitial', {'levels': levelsSinceLast});
+  void seasonReward(int tier, bool premium) => log('season_reward', {'tier': tier, 'premium': premium});
 }

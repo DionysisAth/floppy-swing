@@ -310,6 +310,11 @@ class Simulation {
   double? startedAt;
 
   double? endedAt;
+
+  /// Victory dance played after finishing (a cosmetic id, see
+  /// `cosmetics.dart`). Done with impulses, so it stays floppy.
+  String dance = 'hop';
+  int _danceBeat = -1;
   Vector2? deathPoint;
 
   final List<SimEvent> events = [];
@@ -406,6 +411,7 @@ class Simulation {
     _processHits();
     _updateCrumbles();
     _updateRockets();
+    if (status == SimStatus.finished) _updateDance();
 
     if (status == SimStatus.running) {
       _checkPickups();
@@ -414,6 +420,45 @@ class Simulation {
       _updateStyle(dt);
     }
     _captureSnapshot();
+  }
+
+  // ---------------------------------------------------------------- dance
+
+  void _updateDance() {
+    final since = t - endedAt!;
+    // Dances are sequences of beats; each beat fires once.
+    const beat = 0.12;
+    final n = (since / beat).floor();
+    if (n == _danceBeat) return;
+    _danceBeat = n;
+    switch (dance) {
+      case 'backflip':
+        if (n == 3) _danceKick(0, -10.5, -13);
+      case 'spin':
+        if (n == 3) _danceKick(0, -9, 24);
+        if (n == 9) _danceKick(0, -6, -24);
+      case 'flail':
+        if (n == 3) _danceKick(0, -6, 0);
+        if (n >= 3 && n <= 14) {
+          const limbs = [Part.upperArmFront, Part.upperArmBack, Part.upperLegFront, Part.upperLegBack];
+          for (var k = 0; k < limbs.length; k++) {
+            ragdoll.parts[limbs[k]].angularVelocity = ((n + k).isEven ? 1 : -1) * 18;
+          }
+        }
+      default: // hop
+        if (n == 3 || n == 6 || n == 9) _danceKick(0, -7, 0);
+    }
+  }
+
+  /// Sets every part's velocity to ([vx], [vy]) plus a spin of [spin] rad/s
+  /// about the torso.
+  void _danceKick(double vx, double vy, double spin) {
+    final c = ragdoll.torso.position;
+    for (final b in ragdoll.parts) {
+      final r = b.position - c;
+      b.linearVelocity = Vector2(vx - spin * r.y, vy + spin * r.x);
+      b.angularVelocity = spin;
+    }
   }
 
   // ----------------------------------------------------------------- rope

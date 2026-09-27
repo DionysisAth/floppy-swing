@@ -7,9 +7,12 @@ import '../app.dart';
 import '../game/autopilot.dart';
 import '../game/floppy_game.dart';
 import '../game/game_controller.dart';
+import '../game/season.dart';
 import '../game/skins.dart';
 import 'game_screen.dart';
 import 'level_select_screen.dart';
+import 'login_reward_dialog.dart';
+import 'season_screen.dart';
 import 'settings_screen.dart';
 import 'shop_screen.dart';
 import 'theme.dart';
@@ -41,11 +44,15 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
       level: services.levels.first,
       cfg: services.physics,
       skin: skinById(services.progress.selectedSkin),
+      look: services.progress.loadout,
     )
       ..autopilot = Autopilot(const AutopilotParams(releaseAngle: 0.35, regrabDelay: 0.15, minFallSpeed: -2))
       ..addListener(_onDemo);
     _game = FloppyGame(_demo!, dim: 0.2);
     services.audio.startMusic();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showLoginReward(context);
+    });
   }
 
   void _onDemo() {
@@ -73,6 +80,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
     await Navigator.of(context).push(popRoute(page));
     if (!mounted) return;
     _demo!.skin = skinById(AppServices.of(context).progress.selectedSkin);
+    _demo!.look = AppServices.of(context).progress.loadout;
     _demo!.setPaused(false);
   }
 
@@ -169,13 +177,31 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                       ],
                     ),
                     const SizedBox(height: 10),
-                    ChunkyButton(
-                      onPressed: () => _open(const ShopScreen()),
-                      label: 'SHOP',
-                      icon: Icons.checkroom_rounded,
-                      fontSize: 26,
-                      color: AppColors.pink,
-                      shade: const Color(0xFFC02E63),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _ModeButton(
+                            onPressed: () => _open(const ShopScreen()),
+                            icon: Icons.checkroom_rounded,
+                            label: 'SHOP',
+                            sub: 'Skins, ropes & more',
+                            color: AppColors.pink,
+                            shade: const Color(0xFFC02E63),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _ModeButton(
+                            onPressed: () => _open(const SeasonScreen()),
+                            icon: Icons.workspace_premium_rounded,
+                            label: 'PASS',
+                            sub: 'Tier ${services.progress.seasonTier}/${Season.tiers}',
+                            color: const Color(0xFF8F6BC7),
+                            shade: const Color(0xFF5F3F99),
+                            badge: services.progress.seasonRewardsReady > 0,
+                          ),
+                        ),
+                      ],
                     ),
                     const Spacer(),
                   ],
