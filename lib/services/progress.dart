@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -271,6 +272,75 @@ class ProgressStore extends ChangeNotifier {
   Future<void> _save() async {
     notifyListeners();
     await _prefs?.setString(_key, jsonEncode(toJson()));
+  }
+
+  // ------------------------------------------------------------ cloud save
+
+  static const _cloudRevisionKey = 'floppy_swing_cloud_revision';
+
+  /// Revision of the cloud save this device last synced with.
+  int get cloudRevision => _prefs?.getInt(_cloudRevisionKey) ?? _memCloudRevision;
+  int _memCloudRevision = 0;
+  set cloudRevision(int r) {
+    _memCloudRevision = r;
+    unawaited(_prefs?.setInt(_cloudRevisionKey, r));
+  }
+
+  /// Merges a save from another device (the cloud copy) into this one
+  /// without losing progress on either side: stars, records and owned items
+  /// are combined, currencies and streaks take the higher value, and this
+  /// device keeps its own settings and equipped items.
+  void mergeFrom(Map<String, dynamic> json) {
+    final other = ProgressStore.memory(economy, clock: clock).._fromJson(json);
+    coins = math.max(coins, other.coins);
+    gems = math.max(gems, other.gems);
+    endlessBest = math.max(endlessBest, other.endlessBest);
+    endlessBestDistance = math.max(endlessBestDistance, other.endlessBestDistance);
+    for (final e in other.levels.entries) {
+      final mine = levels.putIfAbsent(e.key, LevelRecord.new);
+      final theirs = e.value;
+      mine.stars |= theirs.stars;
+      mine.skipped = mine.skipped || theirs.skipped;
+      mine.bestStyle = math.max(mine.bestStyle, theirs.bestStyle);
+      final t = theirs.bestTime;
+      if (t != null && (mine.bestTime == null || t < mine.bestTime!)) mine.bestTime = t;
+    }
+    for (final e in other.dailies.entries) {
+      final mine = dailies.putIfAbsent(e.key, DailyRecord.new);
+      mine.stars |= e.value.stars;
+      final t = e.value.bestTime;
+      if (t != null && (mine.bestTime == null || t < mine.bestTime!)) mine.bestTime = t;
+    }
+    if (other.lastDailyDay > lastDailyDay ||
+        (other.lastDailyDay == lastDailyDay && other.dailyStreak > dailyStreak)) {
+      lastDailyDay = other.lastDailyDay;
+      dailyStreak = other.dailyStreak;
+    }
+    if (other.lastLoginDay > lastLoginDay) {
+      lastLoginDay = other.lastLoginDay;
+      loginStreak = other.loginStreak;
+    }
+    if (other._seasonIndex > _seasonIndex) {
+      _seasonIndex = other._seasonIndex;
+      _seasonXp = other._seasonXp;
+      _premiumPass = other._premiumPass;
+      _claimedFree
+        ..clear()
+        ..addAll(other._claimedFree);
+      _claimedPremium
+        ..clear()
+        ..addAll(other._claimedPremium);
+    } else if (other._seasonIndex == _seasonIndex) {
+      _seasonXp = math.max(_seasonXp, other._seasonXp);
+      _premiumPass = _premiumPass || other._premiumPass;
+      _claimedFree.addAll(other._claimedFree);
+      _claimedPremium.addAll(other._claimedPremium);
+    }
+    ownedSkins.addAll(other.ownedSkins);
+    ownedItems.addAll(other.ownedItems);
+    claimedCollections.addAll(other.claimedCollections);
+    adsRemoved = adsRemoved || other.adsRemoved;
+    _save();
   }
 
   // --------------------------------------------------------------- levels

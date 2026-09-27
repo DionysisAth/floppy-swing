@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../services/online_service.dart';
+import 'online_ui.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -13,9 +15,9 @@ class SettingsScreen extends StatelessWidget {
     final progress = services.progress;
     return Scaffold(
       backgroundColor: const Color(0xFFE6F4FF),
-      body: SafeArea(
+      body: ContentArea(
         child: ListenableBuilder(
-          listenable: Listenable.merge([progress, services.ads]),
+          listenable: Listenable.merge([progress, services.ads, services.online]),
           builder: (context, _) => ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -68,6 +70,8 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              _onlinePanel(context),
+              const SizedBox(height: 16),
               if (services.ads.privacyOptionsRequired) ...[
                 ChunkyButton(
                   onPressed: services.ads.showPrivacyOptions,
@@ -89,7 +93,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Floppy Swing 0.1 (MVP)\nFonts: Lilita One & Fredoka (SIL OFL)',
+                'Floppy Swing 1.0\nFonts: Lilita One & Fredoka (SIL OFL)',
                 textAlign: TextAlign.center,
                 style: body(13, color: AppColors.greyDark),
               ),
@@ -98,6 +102,139 @@ class SettingsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _onlinePanel(BuildContext context) {
+    final services = AppServices.of(context);
+    final online = services.online;
+    final profile = online.profile;
+    final status = switch (online.status) {
+      OnlineStatus.disabled => 'Off (no game server set)',
+      OnlineStatus.connecting => 'Connecting...',
+      OnlineStatus.offline => "Offline - can't reach the server",
+      OnlineStatus.online => 'Online as ${profile?.name ?? '?'}',
+    };
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label(Icons.cloud_rounded, 'Online'),
+          const SizedBox(height: 4),
+          Text(status, style: body(15, weight: 600, color: AppColors.greyDark)),
+          if (online.isOnline) ...[
+            Text(
+              'Progress is backed up to the cloud automatically.',
+              style: body(13, weight: 600, color: AppColors.greyDark),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _small('Change name', Icons.edit_rounded, () => _rename(context)),
+                _small('Move to a new phone', Icons.send_to_mobile_rounded, () => _showTransferCode(context)),
+              ],
+            ),
+          ],
+          if (online.enabled) ...[
+            const SizedBox(height: 8),
+            _small('I have a code from my old phone', Icons.download_rounded, () => _enterTransferCode(context)),
+          ],
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: () => _editServer(context),
+            icon: const Icon(Icons.dns_rounded, size: 18),
+            label: Text('Game server: ${online.enabled ? online.serverUrl : 'none'}', style: body(13, weight: 600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _small(String label, IconData icon, VoidCallback onPressed) => ChunkyButton(
+    onPressed: onPressed,
+    label: label,
+    icon: icon,
+    fontSize: 16,
+    color: AppColors.blue,
+    shade: AppColors.blueDark,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+  );
+
+  Future<String?> _ask(BuildContext context, String title, {String initial = '', String? hint}) {
+    final field = TextEditingController(text: initial);
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: field,
+          autofocus: true,
+          decoration: InputDecoration(hintText: hint),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, field.text), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _rename(BuildContext context) async {
+    final online = AppServices.of(context).online;
+    final name = await _ask(context, 'Your name', initial: online.profile?.name ?? '', hint: '3-16 letters');
+    if (name == null || !context.mounted) return;
+    await onlineAction(context, () => online.rename(name));
+  }
+
+  Future<void> _showTransferCode(BuildContext context) async {
+    final code = await onlineAction(context, AppServices.of(context).online.transferCode);
+    if (code == null || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Move to a new phone'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('On your new phone, open Settings > Online > "I have a code" and enter:'),
+            const SizedBox(height: 12),
+            SelectableText(code, style: display(36, color: AppColors.blue, shadow: false).copyWith(letterSpacing: 4)),
+            const SizedBox(height: 8),
+            const Text('The code works once, for 24 hours.'),
+          ],
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
+      ),
+    );
+  }
+
+  Future<void> _enterTransferCode(BuildContext context) async {
+    final services = AppServices.of(context);
+    final code = await _ask(context, 'Code from your old phone', hint: '8 letters');
+    if (code == null || code.trim().isEmpty || !context.mounted) return;
+    final ok = await onlineAction(context, () async {
+      await services.online.redeemTransfer(code);
+      await services.cloud.accountChanged();
+      return true;
+    });
+    if (ok == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Welcome back! Your progress is here.')));
+    }
+  }
+
+  Future<void> _editServer(BuildContext context) async {
+    final services = AppServices.of(context);
+    final url = await _ask(
+      context,
+      'Game server address',
+      initial: services.online.serverUrl,
+      hint: 'https://your-server.example.com',
+    );
+    if (url == null || !context.mounted) return;
+    await services.online.setServer(url);
+    await services.cloud.accountChanged();
   }
 
   Widget _label(IconData icon, String text) => Row(

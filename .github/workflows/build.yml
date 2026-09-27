@@ -23,9 +23,25 @@ env:
   FLUTTER_VERSION: 3.47.5
 
 jobs:
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - run: sudo apt-get install -y libsqlite3-dev
+      - run: dart pub get
+      - run: dart analyze
+      - run: dart test
+
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      HAS_UPLOAD_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -39,13 +55,41 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter analyze
+      # The client tests talk to the real game server code, which uses SQLite.
+      - run: sudo apt-get install -y libsqlite3-dev
       - run: flutter test
-      - run: flutter build apk --release
+      # Release signing, only when the upload key secrets are set (see
+      # docs/RELEASING.md). Without them the APK is signed with the debug key.
+      - name: Upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        if: env.HAS_UPLOAD_KEY == 'true'
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/upload.jks
+          cat > android/key.properties <<PROPS
+          storeFile=../upload.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          PROPS
+      # FLOPPY_SERVER_URL (a repository variable) points the app at your game
+      # server; without it, online features show as offline.
+      - run: flutter build apk --release --dart-define=FLOPPY_SERVER=${{ vars.FLOPPY_SERVER_URL }}
+      - name: Play Store bundle
+        if: env.HAS_UPLOAD_KEY == 'true'
+        run: |
+          flutter build appbundle --release --dart-define=FLOPPY_SERVER=${{ vars.FLOPPY_SERVER_URL }}
+          cp build/app/outputs/bundle/release/app-release.aab FloppySwing.aab
       - run: cp build/app/outputs/flutter-apk/app-release.apk FloppySwing.apk
       - uses: actions/upload-artifact@v4
         with:
           name: FloppySwing-android
-          path: FloppySwing.apk
+          path: |
+            FloppySwing.apk
+            FloppySwing.aab
 
   android-smoke-test:
     needs: android
@@ -88,7 +132,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build ios --release --no-codesign
+      - run: flutter build ios --release --no-codesign --dart-define=FLOPPY_SERVER=${{ vars.FLOPPY_SERVER_URL }}
       - name: Package unsigned IPA
         run: |
           mkdir -p Payload
@@ -100,9 +144,9 @@ jobs:
           path: FloppySwing-unsigned.ipa
 
   release:
-    needs: [android, android-smoke-test, ios]
+    needs: [server, android, android-smoke-test, ios]
     # Only publish builds that launched on the emulator without crashing.
-    if: always() && needs.android-smoke-test.result == 'success'
+    if: always() && needs.android-smoke-test.result == 'success' && needs.server.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -117,6 +161,7 @@ jobs:
           fail_on_unmatched_files: false
           files: |
             FloppySwing.apk
+            FloppySwing.aab
             FloppySwing-unsigned.ipa
           body: |
             Test build from `${{ github.ref_name }}` @ ${{ github.sha }}.

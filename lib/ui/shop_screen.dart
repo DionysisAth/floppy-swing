@@ -27,7 +27,7 @@ class ShopScreen extends StatelessWidget {
       length: _tabs.length,
       child: Scaffold(
         backgroundColor: const Color(0xFFFFE3C2),
-        body: SafeArea(
+        body: ContentArea(
           child: ListenableBuilder(
             listenable: progress,
             builder: (context, _) => Column(

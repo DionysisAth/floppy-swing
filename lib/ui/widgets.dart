@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../app.dart';
@@ -40,18 +42,23 @@ class _ChunkyButtonState extends State<ChunkyButton> {
     final enabled = widget.onPressed != null;
     final color = enabled ? widget.color : AppColors.grey;
     final shade = enabled ? widget.shade : AppColors.greyDark;
-    final content = widget.child ??
-        Row(
-          mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (widget.icon != null)
-              Icon(widget.icon, color: Colors.white, size: widget.fontSize * 1.1,
-                  shadows: const [Shadow(color: AppColors.ink, offset: Offset(0, 2))]),
-            if (widget.icon != null && widget.label != null) const SizedBox(width: 8),
-            if (widget.label != null) Text(widget.label!, style: display(widget.fontSize)),
-          ],
-        );
+    final label = widget.label;
+    final row = Row(
+      mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (widget.icon != null)
+          Icon(widget.icon, color: Colors.white, size: widget.fontSize * 1.1,
+              shadows: const [Shadow(color: AppColors.ink, offset: Offset(0, 2))]),
+        if (widget.icon != null && label != null) const SizedBox(width: 8),
+        if (label != null)
+          widget.expand
+              ? Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(label, style: display(widget.fontSize))))
+              : Text(label, style: display(widget.fontSize)),
+      ],
+    );
+    // Labels shrink rather than overflow (long translations, big system text).
+    final content = widget.child ?? (widget.expand ? row : FittedBox(fit: BoxFit.scaleDown, child: row));
     const lip = 6.0;
     return Semantics(
       button: true,
@@ -272,6 +279,36 @@ class StarRow extends StatelessWidget {
   );
 }
 
+/// Safe area whose content is at most [maxWidth] wide and centred, so
+/// screens don't stretch edge to edge on tablets.
+class ContentArea extends StatelessWidget {
+  const ContentArea({super.key, required this.child, this.maxWidth = 640});
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: LayoutBuilder(
+      builder: (context, box) => Center(
+        child: SizedBox(width: math.min(box.maxWidth, maxWidth), height: box.maxHeight, child: child),
+      ),
+    ),
+  );
+}
+
+/// Centres [child] and keeps it at most [maxWidth] wide (dialogs and
+/// panels on tablets).
+class Narrow extends StatelessWidget {
+  const Narrow({super.key, required this.child, this.maxWidth = 520});
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: child),
+  );
+}
+
 /// White rounded card with a thick outline.
 class Panel extends StatelessWidget {
   const Panel({super.key, required this.child, this.padding = const EdgeInsets.all(20), this.color = Colors.white});
@@ -288,6 +325,7 @@ class Panel extends StatelessWidget {
       border: Border.all(color: AppColors.ink, width: 4),
       boxShadow: const [BoxShadow(color: Color(0x552B1D14), offset: Offset(0, 8))],
     ),
-    child: child,
+    // Own Material so list tiles and ink splashes inside show on the card.
+    child: Material(type: MaterialType.transparency, child: child),
   );
 }

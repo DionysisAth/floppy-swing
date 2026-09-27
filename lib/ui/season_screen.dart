@@ -21,7 +21,7 @@ class SeasonScreen extends StatelessWidget {
     final progress = services.progress;
     return Scaffold(
       backgroundColor: const Color(0xFFEDE3FF),
-      body: SafeArea(
+      body: ContentArea(
         child: ListenableBuilder(
           listenable: progress,
           builder: (context, _) {

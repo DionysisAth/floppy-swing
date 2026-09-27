@@ -76,8 +76,32 @@ class ClipExporter {
     Rect? shareOrigin,
     void Function(double progress)? onProgress,
   }) async {
+    final path = await exportClip(c, caption: caption, onProgress: onProgress);
+    if (path == null) {
+      final plan = _plan(c);
+      if (plan.isEmpty) return;
+      final dir = await getTemporaryDirectory();
+      await _shareStill(c, plan, caption, shareOrigin, dir.path, DateTime.now().millisecondsSinceEpoch);
+      return;
+    }
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(path, mimeType: 'video/mp4')],
+        text: '${ShareText.tagline} ${ShareText.hashtags}',
+        sharePositionOrigin: shareOrigin,
+      ),
+    );
+  }
+
+  /// Renders and encodes the clip to an MP4 file and returns its path, or
+  /// null when this platform has no video encoder.
+  Future<String?> exportClip(
+    GameController c, {
+    required String caption,
+    void Function(double progress)? onProgress,
+  }) async {
     final plan = _plan(c);
-    if (plan.isEmpty) return;
+    if (plan.isEmpty) return null;
     final dir = await getTemporaryDirectory();
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final path = '${dir.path}/floppy_swing_$stamp.mp4';
@@ -91,12 +115,10 @@ class ClipExporter {
         'fps': fps,
       });
     } on MissingPluginException {
-      await _shareStill(c, plan, caption, shareOrigin, dir.path, stamp);
-      return;
+      return null;
     } on PlatformException catch (e) {
       debugPrint('Video encoder unavailable: $e');
-      await _shareStill(c, plan, caption, shareOrigin, dir.path, stamp);
-      return;
+      return null;
     }
 
     try {
@@ -112,14 +134,7 @@ class ClipExporter {
       await _channel.invokeMethod<void>('cancel').catchError((_) {});
       rethrow;
     }
-
-    await SharePlus.instance.share(
-      ShareParams(
-        files: [XFile(path, mimeType: 'video/mp4')],
-        text: '${ShareText.tagline} ${ShareText.hashtags}',
-        sharePositionOrigin: shareOrigin,
-      ),
-    );
+    return path;
   }
 
   /// Fallback when there is no native encoder: share the key frame as a PNG.

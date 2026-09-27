@@ -63,7 +63,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
               colors: [info.color, info.colorDark],
             ),
           ),
-          child: SafeArea(
+          child: ContentArea(
             child: Column(
               children: [
                 Padding(
@@ -181,8 +181,8 @@ class _WorldPage extends StatelessWidget {
     final open = progress.isWorldUnlocked(world.number);
     final grid = GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 88,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
         childAspectRatio: 0.85,

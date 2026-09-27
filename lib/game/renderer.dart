@@ -225,6 +225,11 @@ class WorldRenderer {
   /// Best run's torso path, (run time, x, y, angle) per sample, drawn as a
   /// see-through ghost to race against.
   Float32List? ghost;
+
+  /// Friends' best runs, drawn as tinted ghosts with their names.
+  List<({String name, Float32List samples})> friendGhosts = const [];
+
+  static const _friendTints = [Color(0xFFFF7EB6), Color(0xFF7CE38B), Color(0xFFC9A8FF)];
   Skin skin;
   final ({double minX, double maxX, double minY}) _extent;
   final Map<String, TextPainter> _textCache = {};
@@ -363,6 +368,14 @@ class WorldRenderer {
     if (trail != null && trail.length > 2) drawTrailStyled(canvas, trail, wt, look.trail);
     if (s.ropeAnchor >= 0) _drawRope(canvas, s, events, time, wt);
     final g = ghost;
+    if (s.runTime > 0) {
+      for (var i = 0; i < friendGhosts.length; i++) {
+        final f = friendGhosts[i];
+        if (f.samples.length >= 8) {
+          _drawGhost(canvas, f.samples, s.runTime, tint: _friendTints[i % _friendTints.length], label: f.name);
+        }
+      }
+    }
     if (g != null && g.length >= 8 && s.runTime > 0) _drawGhost(canvas, g, s.runTime);
     drawRagdoll(canvas, s, skin, wt);
     _drawEffects(canvas, events, time);
@@ -372,7 +385,7 @@ class WorldRenderer {
     _drawVignette(canvas, size);
   }
 
-  void _drawGhost(Canvas canvas, Float32List g, double t) {
+  void _drawGhost(Canvas canvas, Float32List g, double t, {Color tint = Palette.white, String? label}) {
     final n = g.length ~/ 4;
     if (t > g[(n - 1) * 4] + 1.5) return;
     // Binary search for the sample pair around t.
@@ -389,22 +402,26 @@ class WorldRenderer {
     final f = t1 > t0 ? ((t - t0) / (t1 - t0)).clamp(0.0, 1.0) : 1.0;
     double at(int k) => g[lo * 4 + k] + (g[hi * 4 + k] - g[lo * 4 + k]) * f;
     final x = at(1), y = at(2), a = at(3);
+    if (label != null) {
+      final tp = _text(label, tint, 0.5);
+      tp.paint(canvas, Offset(x - tp.width / 2, y - 2.1));
+    }
     canvas.save();
     canvas.translate(x, y);
     canvas.rotate(a);
-    _fill.color = const Color(0x66FFFFFF);
+    _fill.color = tint.withValues(alpha: 0.4);
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 0.5, height: 0.9), const Radius.circular(0.25)),
       _fill,
     );
     canvas.drawCircle(const Offset(0, -0.8), 0.34, _fill);
     _stroke
-      ..color = const Color(0x99FFFFFF)
+      ..color = tint.withValues(alpha: 0.6)
       ..strokeWidth = 0.05;
     canvas.drawCircle(const Offset(0, -0.8), 0.34, _stroke);
     // Arms and legs as simple strokes.
     _stroke
-      ..color = const Color(0x66FFFFFF)
+      ..color = tint.withValues(alpha: 0.4)
       ..strokeWidth = 0.16;
     canvas.drawLine(const Offset(0, -0.3), const Offset(0.45, 0.1), _stroke);
     canvas.drawLine(const Offset(0, -0.3), const Offset(-0.45, 0.1), _stroke);
@@ -1513,6 +1530,7 @@ class WorldRenderer {
       case Accessory.hair:
       case Accessory.banana:
       case Accessory.chicken:
+      case Accessory.crown:
         break;
     }
     _stroke
@@ -1647,6 +1665,7 @@ class WorldRenderer {
       case Accessory.astronaut:
       case Accessory.dino:
       case Accessory.wizard:
+      case Accessory.crown:
         break;
     }
 
@@ -1749,6 +1768,27 @@ class WorldRenderer {
           _fill,
         );
         _star(canvas, -r * 0.1, -r * 1.2, r * 0.22, const Color(0xFFFFD23F));
+      case Accessory.crown:
+        _fill.color = const Color(0xFFFFC21A);
+        final crown = Path()
+          ..moveTo(-r * 0.75, -r * 0.65)
+          ..lineTo(-r * 0.85, -r * 1.55)
+          ..lineTo(-r * 0.4, -r * 1.1)
+          ..lineTo(0, -r * 1.7)
+          ..lineTo(r * 0.4, -r * 1.1)
+          ..lineTo(r * 0.85, -r * 1.55)
+          ..lineTo(r * 0.75, -r * 0.65)
+          ..close();
+        canvas.drawPath(crown, _fill);
+        _stroke
+          ..color = const Color(0xFFB07A00)
+          ..strokeWidth = 0.04;
+        canvas.drawPath(crown, _stroke);
+        _fill.color = const Color(0xFFE63946);
+        canvas.drawCircle(Offset(0, -r * 0.95), r * 0.13, _fill);
+        // A little sparkle.
+        final twinkle = (math.sin(wt * 4) + 1) / 2;
+        _star(canvas, r * 0.9, -r * 1.7, r * 0.18 * twinkle + 0.02, Palette.white);
       case Accessory.hair:
       case Accessory.banana:
       case Accessory.ninja:

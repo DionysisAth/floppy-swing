@@ -70,20 +70,24 @@ class _DayTile extends StatelessWidget {
     ),
     child: Column(
       children: [
-        Text('Day $day', style: body(13, weight: 800)),
+        FittedBox(child: Text('Day $day', style: body(13, weight: 800))),
         const SizedBox(height: 4),
         if (past)
           const Icon(Icons.check_circle_rounded, color: AppColors.greenDark, size: 30)
         else ...[
           if (reward.coins > 0)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [const CoinIcon(size: 16), Text(' ${reward.coins}', style: body(14, weight: 800))],
+            FittedBox(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [const CoinIcon(size: 16), Text(' ${reward.coins}', style: body(14, weight: 800))],
+              ),
             ),
           if (reward.gems > 0)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [const GemIcon(size: 16), Text(' ${reward.gems}', style: body(14, weight: 800))],
+            FittedBox(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [const GemIcon(size: 16), Text(' ${reward.gems}', style: body(14, weight: 800))],
+              ),
             ),
         ],
       ],

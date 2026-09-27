@@ -9,7 +9,11 @@ import '../game/floppy_game.dart';
 import '../game/game_controller.dart';
 import '../game/season.dart';
 import '../game/skins.dart';
+import '../services/online_service.dart';
 import 'game_screen.dart';
+import 'fails_screen.dart';
+import 'friends_screen.dart';
+import 'leaderboard_screen.dart';
 import 'level_select_screen.dart';
 import 'login_reward_dialog.dart';
 import 'season_screen.dart';
@@ -50,10 +54,50 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
       ..addListener(_onDemo);
     _game = FloppyGame(_demo!, dim: 0.2);
     services.audio.startMusic();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) showLoginReward(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showLoginReward(context);
+      _checkRewards();
     });
+    _online = services.online..addListener(_checkRewards);
   }
+
+  OnlineService? _online;
+
+  bool _rewardsChecked = false;
+
+  /// Server rewards (e.g. winning Fail of the Week), once per launch.
+  Future<void> _checkRewards() async {
+    final services = AppServices.of(context);
+    if (_rewardsChecked || !services.online.isOnline) return;
+    _rewardsChecked = true;
+    try {
+      final rewards = await services.cloud.collectRewards();
+      if (!mounted || rewards.isEmpty) return;
+      services.audio.play('win.wav');
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            rewards.any((r) => r.reason.startsWith('fail-of-week')) ? 'Your fail won Fail of the Week!' : 'A gift for you!',
+          ),
+          content: Text([
+            for (final r in rewards) ...[
+              if (r.gems > 0) '${r.gems} gems',
+              if (r.coins > 0) '${r.coins} coins',
+              if (r.item == 'golden') 'the Golden Flop skin' else if (r.item != null) r.item!,
+            ],
+          ].join(', ')),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Yay!'))],
+        ),
+      );
+    } catch (e) {
+      debugPrint('Rewards: $e');
+    }
+  }
+
+  Widget _social(IconData icon, String tooltip, Color color, Color shade, VoidCallback onPressed) =>
+      RoundButton(icon: icon, tooltip: tooltip, onPressed: onPressed, color: color, shade: shade, size: 22);
 
   void _onDemo() {
     final d = _demo!;
@@ -70,6 +114,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    _online?.removeListener(_checkRewards);
     _wobble.dispose();
     _demo?.dispose();
     super.dispose();
@@ -91,7 +136,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
       body: Stack(
         children: [
           Positioned.fill(child: IgnorePointer(child: GameWidget(game: _game!))),
-          SafeArea(
+          ContentArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: ListenableBuilder(
@@ -123,6 +168,19 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                             ),
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _social(Icons.emoji_events_rounded, 'Leaderboards', AppColors.orange, AppColors.orangeDark,
+                            () => _open(const LeaderboardScreen())),
+                        const SizedBox(width: 8),
+                        _social(Icons.people_alt_rounded, 'Friends', AppColors.green, AppColors.greenDark,
+                            () => _open(const FriendsScreen())),
+                        const SizedBox(width: 8),
+                        _social(Icons.videocam_rounded, 'Fail of the Week', const Color(0xFFE63946),
+                            const Color(0xFFA11D2A), () => _open(const FailsScreen())),
                       ],
                     ),
                     const Spacer(flex: 2),

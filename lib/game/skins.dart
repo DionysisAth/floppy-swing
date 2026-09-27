@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 /// Extra decoration drawn on top of the basic ragdoll.
-enum Accessory { hair, banana, knight, astronaut, chicken, ninja, pirate, robot, dino, wizard }
+enum Accessory { hair, banana, knight, astronaut, chicken, ninja, pirate, robot, dino, wizard, crown }
 
 /// A character skin: colours for each body part plus an accessory.
 class Skin {
@@ -175,6 +175,21 @@ const skins = <Skin>[
     sleeves: Color(0xFF6A4BC4),
     accessory: Accessory.wizard,
     failSound: 'whistle',
+    exclusive: true,
+  ),
+  // Fail of the Week winners only.
+  Skin(
+    id: 'golden',
+    name: 'Golden Flop',
+    price: 0,
+    tagline: 'Fail of the Week champion.',
+    shirt: Color(0xFFFFC21A),
+    pants: Color(0xFFE0A200),
+    skin: Color(0xFFFFD86B),
+    shoes: Color(0xFFB07A00),
+    sleeves: Color(0xFFFFC21A),
+    accessory: Accessory.crown,
+    failSound: 'win',
     exclusive: true,
   ),
 ];

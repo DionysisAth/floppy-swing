@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flame/game.dart';
@@ -14,7 +15,9 @@ import '../game/simulation.dart';
 import '../game/skins.dart';
 import '../game/worlds.dart';
 import '../services/clip_exporter.dart';
+import '../services/online_service.dart';
 import '../services/progress.dart';
+import 'leaderboard_screen.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -50,6 +53,12 @@ class _GameScreenState extends State<GameScreen> {
   bool _showWin = false;
   LevelReward? _reward;
   ModeReward? _modeReward;
+
+  /// Leaderboard placing after a daily clear or endless run.
+  ({int rank, int total})? _rank;
+
+  /// This fail was already sent to Fail of the Week.
+  bool _failSent = false;
   int _lastZone = 1;
   bool _doubled = false;
   bool _exporting = false;
@@ -77,7 +86,11 @@ class _GameScreenState extends State<GameScreen> {
       mode: widget.mode,
     )..addListener(_onControllerChanged);
     _markBest();
-    if (_ghostKey != null) c.renderer.ghost = _services.progress.ghostFor(_ghostKey!);
+    if (_ghostKey != null) {
+      c.renderer.ghost = _services.progress.ghostFor(_ghostKey!);
+      unawaited(_loadFriendGhosts(_ghostKey!));
+    }
+    if (widget.mode != PlayMode.campaign) _services.analytics.modeStart(widget.mode.name);
     _game = FloppyGame(_controller!);
     GameScreen.debugLastController = _controller;
     _lastAttempt = c.attempts;
@@ -93,6 +106,28 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   bool get _endless => widget.mode == PlayMode.endless;
+
+  OnlineService get _online => _services.online;
+
+  /// Friends' best runs on this level, raced as tinted ghosts.
+  Future<void> _loadFriendGhosts(String key) async {
+    if (!_online.isOnline) return;
+    try {
+      final ghosts = await _online.friendGhosts(key);
+      if (!mounted) return;
+      c.renderer.friendGhosts = [for (final g in ghosts) (name: g.name, samples: g.samples)];
+    } catch (_) {
+      // Ghosts are a bonus; never bother the player about them.
+    }
+  }
+
+  Future<void> _submitScore(String board, double value) async {
+    if (!_online.isOnline) return;
+    try {
+      final rank = await _online.submitScore(board, value);
+      if (mounted) setState(() => _rank = rank);
+    } catch (_) {}
+  }
 
   String? get _ghostKey => switch (widget.mode) {
     PlayMode.campaign => 'L${widget.levelId}',
@@ -124,9 +159,15 @@ class _GameScreenState extends State<GameScreen> {
         if (er != null) {
           _modeReward = _services.progress.recordEndless(er);
           _markBest();
+          _services.analytics.endlessRun(er.distance, er.score);
+          unawaited(_submitScore(OnlineService.endlessBoard, er.score.toDouble()));
         }
       }
-      if (phase == GamePhase.ready) _modeReward = null;
+      if (phase == GamePhase.ready) {
+        _modeReward = null;
+        _rank = null;
+        _failSent = false;
+      }
       if (phase == GamePhase.won && c.result != null) {
         final r = c.result!;
         final prevBest = _daily
@@ -136,10 +177,13 @@ class _GameScreenState extends State<GameScreen> {
         if (key != null && !r.revived && (prevBest == null || r.time < prevBest)) {
           final ghost = c.recordedGhost;
           _services.progress.saveGhost(key, ghost);
+          if (_online.isOnline) unawaited(_online.uploadGhost(key, r.time, ghost).catchError((Object _) {}));
           c.renderer.ghost = ghost;
         }
         if (_daily) {
           _modeReward = _services.progress.recordDaily(widget.day, r);
+          _services.analytics.dailyComplete(widget.day, r.time);
+          unawaited(_submitScore(OnlineService.dailyBoard(widget.day), r.time));
         } else {
           _reward = _services.progress.recordWin(c.level.id, r);
         }
@@ -186,6 +230,48 @@ class _GameScreenState extends State<GameScreen> {
         c.setPaused(false);
       }
     }
+  }
+
+  /// Exports this fail as a clip and enters it into Fail of the Week.
+  Future<void> _sendFail() async {
+    if (_exporting || _failSent) return;
+    setState(() {
+      _exporting = true;
+      _exportProgress = 0;
+    });
+    c.setPaused(true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final caption = _failLine();
+      final path = await ClipExporter().exportClip(
+        c,
+        caption: caption,
+        onProgress: (p) {
+          if (mounted) setState(() => _exportProgress = p);
+        },
+      );
+      if (path == null) {
+        messenger.showSnackBar(const SnackBar(content: Text("This phone can't make video clips.")));
+        return;
+      }
+      await _online.submitFail(await File(path).readAsBytes(), caption);
+      _services.analytics.failSubmitted();
+      if (mounted) setState(() => _failSent = true);
+      messenger.showSnackBar(const SnackBar(content: Text('Sent! Voting is open in Fail of the Week.')));
+    } on OnlineException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not make the clip: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _exporting = false);
+        c.setPaused(false);
+      }
+    }
+  }
+
+  void _openRanks(BoardKind kind) {
+    Navigator.of(context).push(popRoute(LeaderboardScreen(initial: kind)));
   }
 
   Future<void> _reviveWithAd() async {
@@ -291,10 +377,14 @@ class _GameScreenState extends State<GameScreen> {
     DeathCause.stuck: ['Nap time?', 'Stuck like glue.', 'Taking a breather?'],
   };
 
-  Widget _failPanel() {
+  String _failLine() {
     final cause = c.sim.deathCause ?? DeathCause.pit;
     final lines = _failLines[cause]!;
-    final line = lines[c.attempts % lines.length];
+    return lines[c.attempts % lines.length];
+  }
+
+  Widget _failPanel() {
+    final line = _failLine();
     final ads = _services.ads;
     final progress = _services.progress;
     final cost = _services.economy.reviveCost;
@@ -339,6 +429,24 @@ class _GameScreenState extends State<GameScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     ),
                   ),
+                  if (_online.isOnline && !_failSent)
+                    ChunkyButton(
+                      onPressed: _sendFail,
+                      icon: Icons.videocam_rounded,
+                      label: 'Send to Fail of the Week',
+                      color: const Color(0xFFE63946),
+                      shade: const Color(0xFFA11D2A),
+                      fontSize: 18,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                  if (_endless && _online.isOnline)
+                    RoundButton(
+                      icon: Icons.emoji_events_rounded,
+                      tooltip: 'Leaderboard',
+                      onPressed: () => _openRanks(BoardKind.endless),
+                      color: AppColors.orange,
+                      shade: AppColors.orangeDark,
+                    ),
                   if (_endless)
                     ChunkyButton(
                       onPressed: () => Navigator.of(context).pushReplacement(
@@ -415,6 +523,8 @@ class _GameScreenState extends State<GameScreen> {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
         child: Column(
           children: [
+            if (_rank case final rank?)
+              Text('#${rank.rank} of ${rank.total} worldwide', style: body(15, weight: 800, color: AppColors.blue)),
             if (reward?.newBest ?? false)
               Text('NEW BEST!', style: display(22, color: AppColors.pink, shadow: false)),
             Text('${r.distance} m', style: display(48, color: AppColors.orange)),
@@ -458,6 +568,14 @@ class _GameScreenState extends State<GameScreen> {
           ],
         ),
         if (reward.newBest) Text('New best time today!', style: body(16, weight: 700)),
+        if (_rank case final rank?)
+          GestureDetector(
+            onTap: () => _openRanks(BoardKind.daily),
+            child: Text(
+              '#${rank.rank} of ${rank.total} today  ›',
+              style: body(16, weight: 800, color: AppColors.blue),
+            ),
+          ),
         if (streak > 0)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -483,7 +601,7 @@ class _GameScreenState extends State<GameScreen> {
       child: ColoredBox(
         color: AppColors.scrim,
         child: SafeArea(
-          child: Center(
+          child: Narrow(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Panel(
@@ -598,7 +716,7 @@ class _GameScreenState extends State<GameScreen> {
     return Positioned.fill(
       child: ColoredBox(
         color: AppColors.scrim,
-        child: Center(
+        child: Narrow(
           child: Padding(
             padding: const EdgeInsets.all(28),
             child: Panel(
@@ -826,7 +944,7 @@ class _ExportOverlay extends StatelessWidget {
   Widget build(BuildContext context) => Positioned.fill(
     child: ColoredBox(
       color: AppColors.scrim,
-      child: Center(
+      child: Narrow(
         child: Padding(
           padding: const EdgeInsets.all(40),
           child: Panel(
