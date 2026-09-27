@@ -6,8 +6,8 @@
   },
   "4": {
     "releaseAngle": 0.7,
-    "regrabDelay": 0.15,
-    "minFallSpeed": -6.0
+    "regrabDelay": 0.35,
+    "minFallSpeed": -2.0
   },
   "5": {
     "releaseAngle": 0.2,
@@ -37,12 +37,12 @@
   "13": {
     "releaseAngle": 0.35,
     "regrabDelay": 0.05,
-    "minFallSpeed": -2.0
+    "minFallSpeed": -6.0
   },
   "15": {
     "releaseAngle": 0.35,
-    "regrabDelay": 0.15,
-    "minFallSpeed": 1.0
+    "regrabDelay": 0.05,
+    "minFallSpeed": -2.0
   },
   "3": {
     "releaseAngle": 0.5,
@@ -66,12 +66,12 @@
   },
   "11": {
     "releaseAngle": 0.5,
-    "regrabDelay": 0.35,
-    "minFallSpeed": -2.0
+    "regrabDelay": 0.15,
+    "minFallSpeed": 1.0
   },
   "14": {
     "releaseAngle": 0.2,
-    "regrabDelay": 0.35,
-    "minFallSpeed": 4.0
+    "regrabDelay": 0.05,
+    "minFallSpeed": -2.0
   }
 }

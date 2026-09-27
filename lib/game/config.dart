@@ -21,6 +21,9 @@ class PhysicsConfig {
     this.releaseLift = 2.5,
     this.groundLaunchSpeed = 12.0,
     this.lowSpeedAssist = 1.8,
+    this.ropeSnapKeep = 0.85,
+    this.ropeSnapMaxSpeed = 18.0,
+    this.ropeSlackTakeUp = 14.0,
     this.assistBelowSpeed = 8.0,
     this.anchorForwardBias = 0.45,
     this.anchorBelowPenalty = 0.6,
@@ -54,6 +57,9 @@ class PhysicsConfig {
     releaseLift: _d(m, 'releaseLift', 2.5),
     groundLaunchSpeed: _d(m, 'groundLaunchSpeed', 12.0),
     lowSpeedAssist: _d(m, 'lowSpeedAssist', 1.8),
+    ropeSnapKeep: _d(m, 'ropeSnapKeep', 0.85),
+    ropeSnapMaxSpeed: _d(m, 'ropeSnapMaxSpeed', 18.0),
+    ropeSlackTakeUp: _d(m, 'ropeSlackTakeUp', 14.0),
     assistBelowSpeed: _d(m, 'assistBelowSpeed', 8.0),
     anchorForwardBias: _d(m, 'anchorForwardBias', 0.45),
     anchorBelowPenalty: _d(m, 'anchorBelowPenalty', 0.6),
@@ -118,6 +124,19 @@ class PhysicsConfig {
   /// ones faster.
   final double lowSpeedAssist;
   final double assistBelowSpeed;
+
+  /// When a slack rope snaps tight, this fraction of the character's speed is
+  /// kept and redirected along the swing (instead of the physics simply
+  /// deleting the outward part). Grabbing from above becomes a whip, not a
+  /// stall.
+  final double ropeSnapKeep;
+
+  /// Cap on the speed a rope snap can produce.
+  final double ropeSnapMaxSpeed;
+
+  /// How fast (m/s) a slack rope takes in the extra length, so the drop
+  /// before it catches is short.
+  final double ropeSlackTakeUp;
 
   /// How strongly anchor picking prefers anchors in the direction of travel.
   final double anchorForwardBias;

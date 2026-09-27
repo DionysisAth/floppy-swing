@@ -1,3 +1,4 @@
+import 'package:forge2d/forge2d.dart' show Vector2;
 import 'package:floppy_swing/game/autopilot.dart';
 import 'package:floppy_swing/game/config.dart';
 import 'package:floppy_swing/game/level.dart';
@@ -75,6 +76,29 @@ void main() {
     expect(sim.ragdoll.velocity.length, greaterThan(9));
     // Heading forward (towards the finish) and up.
     expect(sim.ragdoll.velocity.x, greaterThan(0));
+  });
+
+  test('a slack rope snapping tight keeps its momentum as swing speed', () {
+    final level = Level.parse('''{"id": 1, "name": "x", "targetTime": 9, "start": [0, 0], "killY": 30,
+      "finish": [80, -3, 4, 7], "platforms": [], "anchors": [[10, -8]]}''');
+    // Grab a ring from well above it while flying towards it.
+    final sim = Simulation(level, cfg, spawn: const P(5, -12.5));
+    sim.ragdoll.setVelocity(Vector2(8, 0));
+    sim.startedAt = 0;
+    sim.press();
+    var peak = 0.0, afterSnap = double.infinity;
+    for (var i = 0; i < 60; i++) {
+      sim.step();
+      final v = sim.ragdoll.velocity.length;
+      if (v > peak) {
+        peak = v;
+      } else if (peak > 15 && v < afterSnap) {
+        afterSnap = v;
+        break;
+      }
+    }
+    // The raw rope joint used to leave barely a third of the speed.
+    expect(afterSnap, greaterThan(peak * 0.75));
   });
 
   test('pressing with nothing in range is a miss', () {

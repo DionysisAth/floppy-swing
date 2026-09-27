@@ -252,6 +252,11 @@ class Simulation {
   double _ropeTarget = 0;
   bool _holding = false;
 
+  /// Rope was slack (or just attached) going into this step, so it may snap
+  /// tight during it; see [_conserveSnapMomentum].
+  bool _ropeMaySnap = false;
+  final Vector2 _preStepVelocity = Vector2.zero();
+
   int _coins;
   int _checkpoints;
   int lastCheckpoint = -1;
@@ -314,9 +319,14 @@ class Simulation {
       _updateRope(dt);
     }
 
+    if (_rope != null) {
+      _ropeMaySnap = _ropeMaySnap || _ropeDistance() < _rope!.maxLength - 0.05;
+      _preStepVelocity.setFrom(ragdoll.velocity);
+    }
     _hits.clear();
     world.stepDt(dt);
     t += dt;
+    _conserveSnapMomentum();
     _processHits();
 
     if (status == SimStatus.running) {
@@ -382,6 +392,7 @@ class Simulation {
     _ropeTarget = math.max(cfg.ropeMinLength, dist * cfg.ropeReelFactor);
     _swingSweep = 0;
     _bigSwingAwarded = false;
+    _ropeMaySnap = true;
     _lastSwingAngle = _swingAngle();
     if (_touching > 0) {
       // Slingshot: fling the character forward and up into a full swing.
@@ -412,6 +423,52 @@ class Simulation {
     events.add(SimEvent(EventKind.release, t, a.x, a.y));
   }
 
+  double _ropeDistance() {
+    final a = level.anchors[_ropeAnchor];
+    final h = ragdoll.handWorld;
+    final dx = h.x - a.x, dy = h.y - a.y;
+    return math.sqrt(dx * dx + dy * dy);
+  }
+
+  /// A rope joint going tight deletes all velocity pointing away from the
+  /// anchor, which made grabs from level-with or above the ring feel like a
+  /// stall. When that happens, keep most of the speed and send it along the
+  /// swing instead.
+  void _conserveSnapMomentum() {
+    final rope = _rope;
+    if (rope == null || !_ropeMaySnap) return;
+    if (_ropeDistance() < rope.maxLength - 0.05) return; // Still slack.
+    _ropeMaySnap = false;
+    final a = level.anchors[_ropeAnchor];
+    final torso = ragdoll.torso.position;
+    final radial = torso - Vector2(a.x, a.y);
+    if (radial.length2 < 0.01) return;
+    radial.normalize();
+    final before = _preStepVelocity;
+    if (before.dot(radial) < 1.0) return; // Wasn't pulling on the rope.
+    var tangent = Vector2(-radial.y, radial.x);
+    final beforeAlong = before.dot(tangent);
+    if (beforeAlong.abs() < 0.5) {
+      // Falling straight at the rope: swing towards the finish.
+      if (tangent.x * (level.finish.x - torso.x) < 0) tangent = -tangent;
+    } else if (beforeAlong < 0) {
+      tangent = -tangent;
+    }
+    final speed = math.min(before.length * cfg.ropeSnapKeep, cfg.ropeSnapMaxSpeed);
+    // Only ever add speed: a snap should never feel like a brake.
+    if (speed <= before.dot(tangent).abs()) return;
+    // The joint stops the hand first and the rest of the body over the next
+    // few steps (through the arm), so strip the outward part from every body
+    // part now, then put the kept speed into the swing.
+    for (final b in ragdoll.parts) {
+      final v = b.linearVelocity;
+      final out = v.dot(radial);
+      if (out > 0) b.linearVelocity = v - radial * out;
+    }
+    final along = ragdoll.velocity.dot(tangent);
+    ragdoll.addVelocity(tangent * (speed - along));
+  }
+
   double _swingAngle() {
     final a = level.anchors[_ropeAnchor];
     final p = ragdoll.torso.position;
@@ -421,7 +478,15 @@ class Simulation {
   void _updateRope(double dt) {
     final rope = _rope;
     if (rope == null) return;
-    if (rope.maxLength > _ropeTarget) {
+    final dist = _ropeDistance();
+    if (dist < rope.maxLength - 0.3) {
+      // Slack: take in the extra length quickly (but never below the reel
+      // target) so the rope catches soon instead of after a long drop.
+      rope.maxLength = math.max(
+        _ropeTarget,
+        math.max(dist + 0.3, rope.maxLength - cfg.ropeSlackTakeUp * dt),
+      );
+    } else if (rope.maxLength > _ropeTarget) {
       rope.maxLength = math.max(_ropeTarget, rope.maxLength - cfg.ropeReelSpeed * dt);
     }
 
