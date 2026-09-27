@@ -9,7 +9,7 @@ import 'ragdoll.dart';
 
 enum SimStatus { running, dead, finished }
 
-enum WorldKind { platform, spike, saw, pad }
+enum WorldKind { platform, spike, saw, pad, glass, crumble }
 
 /// Why a run ended in failure.
 enum DeathCause { spikes, saw, pit, stuck }
@@ -34,6 +34,23 @@ enum EventKind {
   death,
   finish,
   style,
+
+  /// A glass pane smashed (value = pane index).
+  shatter,
+
+  /// A crumbling platform was stepped on ('crack') or started falling
+  /// ('fall'); value = platform index.
+  crumble,
+
+  /// A rocket was fired nearby (x/y = launcher).
+  rocket,
+
+  /// A rocket exploded (value = rocket key); label 'hit' when it hit the
+  /// character.
+  boom,
+
+  /// The character entered (value 1) or left (value 0) a gravity-flip zone.
+  flip,
 }
 
 /// Something noteworthy that happened during the simulation. Audio, particle
@@ -69,9 +86,30 @@ class Snapshot {
     required this.vy,
     required this.status,
     required this.runTime,
-  });
+    Float32List? anchors,
+    this.glassBroken = 0,
+    Float32List? crumbles,
+    this.explodedRockets = const [],
+  }) : anchors = anchors ?? Float32List(0),
+       crumbles = crumbles ?? Float32List(0);
 
   final double t;
+
+  /// x, y for each anchor (they can move).
+  final Float32List anchors;
+
+  /// Bit mask of smashed glass panes.
+  final int glassBroken;
+
+  /// x, y, angle for each crumbling platform.
+  final Float32List crumbles;
+
+  /// Keys of rockets in flight that already exploded (see [rocketKey]).
+  final List<int> explodedRockets;
+
+  double ax(int i) => anchors[i * 2];
+  double ay(int i) => anchors[i * 2 + 1];
+  bool glassIsBroken(int i) => (glassBroken >> i) & 1 == 1;
 
   /// x, y, angle for each ragdoll part.
   final Float32List parts;
@@ -212,6 +250,18 @@ class Simulation {
       );
       _saws.add(body);
     }
+    for (var i = 0; i < level.anchors.length; i++) {
+      final a = level.anchors[i];
+      _anchorBodies.add(
+        a.moving ? world.createBody(BodyDef(type: BodyType.kinematic, position: Vector2(a.x, a.y))) : null,
+      );
+    }
+    for (var i = 0; i < level.glass.length; i++) {
+      _glassBodies.add(_boxBody(level.glass[i], WorldTag(WorldKind.glass, i)));
+    }
+    for (var i = 0; i < level.crumbles.length; i++) {
+      _crumbleBodies.add(_boxBody(level.crumbles[i], WorldTag(WorldKind.crumble, i)));
+    }
     final sp = spawn ?? level.start;
     ragdoll = Ragdoll(world, cfg, Vector2(sp.x, sp.y));
     _captureSnapshot();
@@ -224,6 +274,24 @@ class Simulation {
   late final Body _ground;
   late final Body _anchorBody;
   final List<Body> _saws = [];
+
+  /// Kinematic body per moving anchor (null for fixed ones).
+  final List<Body?> _anchorBodies = [];
+  final List<Body?> _glassBodies = [];
+  final List<Body?> _crumbleBodies = [];
+  int _glassBroken = 0;
+  final Map<int, double> _crumbleTouchedAt = {};
+  final Set<int> _crumbleFallen = {};
+  final Set<int> _exploded = {};
+  final Set<int> _rocketsAnnounced = {};
+  bool _torsoFlipped = false;
+  final List<Vector2> _partVelocities = List.generate(Part.count, (_) => Vector2.zero());
+
+  /// Current position of anchor [i] (anchors can move).
+  P anchorAt(int i) => level.anchors[i].moving ? level.anchors[i].positionAt(t) : level.anchors[i];
+
+  /// Identifies rocket [k] of launcher [launcher].
+  static int rocketKey(int launcher, int k) => launcher * 100000 + k;
 
   /// Elapsed run time carried over from before a checkpoint revive.
   final double runTimeOffset;
@@ -311,7 +379,8 @@ class Simulation {
 
   void step() {
     final dt = cfg.dt;
-    _moveSaws(dt);
+    _moveKinematics(dt);
+    _applyFields();
     if (status == SimStatus.running) {
       // Holding with nothing attached keeps trying, so pressing slightly
       // early still grabs as soon as an anchor comes into range.
@@ -323,11 +392,16 @@ class Simulation {
       _ropeMaySnap = _ropeMaySnap || _ropeDistance() < _rope!.maxLength - 0.05;
       _preStepVelocity.setFrom(ragdoll.velocity);
     }
+    for (var i = 0; i < Part.count; i++) {
+      _partVelocities[i].setFrom(ragdoll.parts[i].linearVelocity);
+    }
     _hits.clear();
     world.stepDt(dt);
     t += dt;
     _conserveSnapMomentum();
     _processHits();
+    _updateCrumbles();
+    _updateRockets();
 
     if (status == SimStatus.running) {
       _checkPickups();
@@ -351,7 +425,7 @@ class Simulation {
     var best = -1;
     var bestScore = double.infinity;
     for (var i = 0; i < level.anchors.length; i++) {
-      final a = level.anchors[i];
+      final a = anchorAt(i);
       final dx = a.x - pos.x, dy = a.y - pos.y;
       final dist = math.sqrt(dx * dx + dy * dy);
       if (dist > cfg.ropeRange || dist < 0.3) continue;
@@ -375,14 +449,15 @@ class Simulation {
       }
       return;
     }
-    final a = level.anchors[idx];
+    final a = anchorAt(idx);
     final anchor = Vector2(a.x, a.y);
+    final moving = _anchorBodies[idx];
     final dist = (ragdoll.handWorld - anchor).length;
     final len = dist.clamp(cfg.ropeMinLength, cfg.ropeRange + 1.0);
     final def = RopeJointDef()
-      ..bodyA = _anchorBody
+      ..bodyA = moving ?? _anchorBody
       ..bodyB = ragdoll.hand
-      ..localAnchorA.setFrom(anchor)
+      ..localAnchorA.setFrom(moving == null ? anchor : Vector2.zero())
       ..localAnchorB.setFrom(ragdoll.handLocal)
       ..maxLength = len;
     final joint = RopeJoint(def);
@@ -413,7 +488,7 @@ class Simulation {
     if (rope == null) return;
     world.destroyJoint(rope);
     _rope = null;
-    final a = level.anchors[_ropeAnchor];
+    final a = anchorAt(_ropeAnchor);
     _ropeAnchor = -1;
     if (boost) {
       final v = ragdoll.velocity;
@@ -424,7 +499,7 @@ class Simulation {
   }
 
   double _ropeDistance() {
-    final a = level.anchors[_ropeAnchor];
+    final a = anchorAt(_ropeAnchor);
     final h = ragdoll.handWorld;
     final dx = h.x - a.x, dy = h.y - a.y;
     return math.sqrt(dx * dx + dy * dy);
@@ -439,7 +514,7 @@ class Simulation {
     if (rope == null || !_ropeMaySnap) return;
     if (_ropeDistance() < rope.maxLength - 0.05) return; // Still slack.
     _ropeMaySnap = false;
-    final a = level.anchors[_ropeAnchor];
+    final a = anchorAt(_ropeAnchor);
     final torso = ragdoll.torso.position;
     final radial = torso - Vector2(a.x, a.y);
     if (radial.length2 < 0.01) return;
@@ -470,7 +545,7 @@ class Simulation {
   }
 
   double _swingAngle() {
-    final a = level.anchors[_ropeAnchor];
+    final a = anchorAt(_ropeAnchor);
     final p = ragdoll.torso.position;
     return math.atan2(p.y - a.y, p.x - a.x);
   }
@@ -491,7 +566,7 @@ class Simulation {
     }
 
     // Pump: push along the swing direction so swings build up nicely.
-    final a = level.anchors[_ropeAnchor];
+    final a = anchorAt(_ropeAnchor);
     final torso = ragdoll.torso;
     final r = torso.position - Vector2(a.x, a.y);
     if (r.length2 < 0.01) return;
@@ -507,7 +582,7 @@ class Simulation {
     }
     // Only pump on the down-swing and the bottom of the arc; pumping on the
     // way up would let you climb to the top of every anchor.
-    final belowAnchor = r.y > -0.2 * r.length;
+    final belowAnchor = _torsoFlipped ? r.y < 0.2 * r.length : r.y > -0.2 * r.length;
     final speed = v.length;
     if (belowAnchor && speed < cfg.maxSwingSpeed) {
       final slow = ((cfg.assistBelowSpeed - speed) / cfg.assistBelowSpeed).clamp(0.0, 1.0);
@@ -536,16 +611,112 @@ class Simulation {
 
   // ------------------------------------------------------------- hazards
 
-  void _moveSaws(double dt) {
+  void _moveKinematics(double dt) {
+    void follow(Body body, P next) {
+      body.linearVelocity = Vector2((next.x - body.position.x) / dt, (next.y - body.position.y) / dt);
+    }
+
     for (var i = 0; i < _saws.length; i++) {
       final s = level.saws[i];
-      if (s.to == null) continue;
-      final next = s.positionAt(t + dt);
-      final body = _saws[i];
-      body.linearVelocity = Vector2(
-        (next.x - body.position.x) / dt,
-        (next.y - body.position.y) / dt,
-      );
+      if (s.to != null) follow(_saws[i], s.positionAt(t + dt));
+    }
+    for (var i = 0; i < _anchorBodies.length; i++) {
+      final body = _anchorBodies[i];
+      if (body != null) follow(body, level.anchors[i].positionAt(t + dt));
+    }
+  }
+
+  /// Wind zones push; gravity-flip zones turn gravity upside down.
+  void _applyFields() {
+    if (level.winds.isEmpty && level.flips.isEmpty) return;
+    for (var i = 0; i < Part.count; i++) {
+      final b = ragdoll.parts[i];
+      final p = b.position;
+      for (final w in level.winds) {
+        if (w.box.contains(p.x, p.y)) {
+          b.applyForce(Vector2(w.dirX, w.dirY) * (w.strength * b.mass));
+        }
+      }
+      if (level.flips.isNotEmpty) {
+        final flipped = level.flips.any((f) => f.contains(p.x, p.y));
+        b.gravityScale = flipped ? Vector2(1, -1) : null;
+        if (i == Part.torso && flipped != _torsoFlipped) {
+          _torsoFlipped = flipped;
+          events.add(SimEvent(EventKind.flip, t, p.x, p.y, value: flipped ? 1 : 0));
+        }
+      }
+    }
+  }
+
+  void _updateCrumbles() {
+    for (final e in _crumbleTouchedAt.entries) {
+      final i = e.key;
+      final body = _crumbleBodies[i];
+      if (body == null || _crumbleFallen.contains(i)) continue;
+      if (t - e.value >= cfg.crumbleDelay) {
+        _crumbleFallen.add(i);
+        body.setType(BodyType.dynamic);
+        body.angularVelocity = (i.isEven ? 1 : -1) * 0.8;
+        events.add(SimEvent(EventKind.crumble, t, body.position.x, body.position.y, value: i.toDouble(), label: 'fall'));
+      }
+    }
+    // Forget platforms that have fallen far out of the level.
+    for (final i in _crumbleFallen) {
+      final body = _crumbleBodies[i];
+      if (body != null && body.position.y > level.killY + 40) {
+        world.destroyBody(body);
+        _crumbleBodies[i] = null;
+      }
+    }
+  }
+
+  void _updateRockets() {
+    for (var li = 0; li < level.launchers.length; li++) {
+      final l = level.launchers[li];
+      for (final k in l.activeAt(t)) {
+        final key = rocketKey(li, k);
+        final age = t - l.launchTime(k);
+        if (!_rocketsAnnounced.contains(key)) {
+          _rocketsAnnounced.add(key);
+          final torso = ragdoll.torso.position;
+          if ((torso.x - l.x).abs() < 14 && (torso.y - l.y).abs() < 20) {
+            events.add(SimEvent(EventKind.rocket, t, l.x, l.y, value: key.toDouble()));
+          }
+        }
+        if (_exploded.contains(key) || age < 0.12) continue;
+        final r = l.rocketAt(k, t);
+        // Hit the character?
+        var hit = false;
+        for (final b in ragdoll.parts) {
+          final dx = b.position.x - r.x, dy = b.position.y - r.y;
+          if (dx * dx + dy * dy < cfg.rocketHitRadius * cfg.rocketHitRadius) {
+            hit = true;
+            break;
+          }
+        }
+        if (hit) {
+          _exploded.add(key);
+          final dir = Vector2(math.cos(l.angle), math.sin(l.angle));
+          for (final b in ragdoll.parts) {
+            final away = (b.position - Vector2(r.x, r.y));
+            final push = (away.length2 > 1e-6 ? away.normalized() : dir) * 0.5 + dir * 0.5;
+            b.linearVelocity = b.linearVelocity + push.normalized() * cfg.rocketKnock + Vector2(0, -3);
+          }
+          ragdoll.torso.angularVelocity += 12 * (dir.x >= 0 ? 1 : -1);
+          events.add(SimEvent(EventKind.boom, t, r.x, r.y, value: key.toDouble(), label: 'hit'));
+          continue;
+        }
+        // Hit a wall?
+        final walls = [
+          ...level.platforms,
+          for (var i = 0; i < level.glass.length; i++)
+            if (!(( _glassBroken >> i) & 1 == 1)) level.glass[i],
+        ];
+        if (walls.any((w) => w.contains(r.x, r.y))) {
+          _exploded.add(key);
+          events.add(SimEvent(EventKind.boom, t, r.x, r.y, value: key.toDouble()));
+        }
+      }
     }
   }
 
@@ -568,8 +739,37 @@ class Simulation {
           _bounce(hit);
         case WorldKind.platform:
           _bonk(hit);
+        case WorldKind.glass:
+          if (hit.approach >= cfg.glassBreakSpeed) {
+            _shatter(hit.tag.index);
+          } else {
+            _bonk(hit);
+          }
+        case WorldKind.crumble:
+          final i = hit.tag.index;
+          if (!_crumbleTouchedAt.containsKey(i)) {
+            _crumbleTouchedAt[i] = t;
+            final c = level.crumbles[i];
+            events.add(SimEvent(EventKind.crumble, t, c.x, c.y, value: i.toDouble(), label: 'crack'));
+          }
+          _bonk(hit);
       }
     }
+  }
+
+  void _shatter(int i) {
+    final body = _glassBodies[i];
+    if (body == null) return;
+    world.destroyBody(body);
+    _glassBodies[i] = null;
+    _glassBroken |= 1 << i;
+    // Smash straight through: undo the bounce the collision just caused.
+    for (var p = 0; p < Part.count; p++) {
+      ragdoll.parts[p].linearVelocity = _partVelocities[p] * 0.9;
+    }
+    final g = level.glass[i];
+    events.add(SimEvent(EventKind.shatter, t, g.x, g.y, value: i.toDouble()));
+    _awardStyle('SMASH', 80);
   }
 
   void _bonk(_Hit hit) {
@@ -800,8 +1000,31 @@ class Simulation {
       saws[i * 3 + 1] = b.position.y;
       saws[i * 3 + 2] = b.angle;
     }
+    final anchors = Float32List(level.anchors.length * 2);
+    for (var i = 0; i < level.anchors.length; i++) {
+      final a = anchorAt(i);
+      anchors[i * 2] = a.x;
+      anchors[i * 2 + 1] = a.y;
+    }
+    final crumbles = Float32List(level.crumbles.length * 3);
+    for (var i = 0; i < level.crumbles.length; i++) {
+      final body = _crumbleBodies[i];
+      final c = level.crumbles[i];
+      crumbles[i * 3] = body?.position.x ?? c.x;
+      crumbles[i * 3 + 1] = body?.position.y ?? level.killY + 60;
+      crumbles[i * 3 + 2] = body?.angle ?? c.angle;
+    }
+    final exploded = <int>[
+      for (var li = 0; li < level.launchers.length; li++)
+        for (final k in level.launchers[li].activeAt(t))
+          if (_exploded.contains(rocketKey(li, k))) rocketKey(li, k),
+    ];
     final v = ragdoll.torso.linearVelocity;
     snapshot = Snapshot(
+      anchors: anchors,
+      glassBroken: _glassBroken,
+      crumbles: crumbles,
+      explodedRockets: exploded,
       t: t,
       parts: parts,
       saws: saws,
@@ -832,6 +1055,20 @@ class Simulation {
     );
   }
 
+  Body _boxBody(Box b, WorldTag tag) {
+    final body = world.createBody(BodyDef(position: Vector2(b.x, b.y), angle: b.angle));
+    body.createFixture(
+      FixtureDef(
+        PolygonShape()..setAsBoxXY(b.w / 2, b.h / 2),
+        userData: tag,
+        friction: 0.7,
+        restitution: tag.kind == WorldKind.glass ? 0.1 : 0.2,
+        density: 2,
+      ),
+    );
+    return body;
+  }
+
   static int _popCount(int v) {
     var c = 0;
     while (v != 0) {
@@ -848,7 +1085,8 @@ class _SightCallback implements RayCastCallback {
   @override
   double reportFixture(Fixture fixture, Vector2 point, Vector2 normal, double fraction) {
     final tag = fixture.userData;
-    if (tag is WorldTag && tag.kind == WorldKind.platform) {
+    if (tag is WorldTag &&
+        (tag.kind == WorldKind.platform || tag.kind == WorldKind.glass || tag.kind == WorldKind.crumble)) {
       blocked = true;
       return 0; // Stop the ray.
     }

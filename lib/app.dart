@@ -10,7 +10,10 @@ import 'ui/menu_screen.dart';
 import 'ui/theme.dart';
 
 /// Number of campaign levels shipped in `assets/levels/`.
-const levelCount = 15;
+const levelCount = 100;
+
+/// Levels per world.
+const levelsPerWorld = 20;
 
 /// Loads configs and levels from the asset bundle.
 Future<({PhysicsConfig physics, EconomyConfig economy, List<Level> levels})> loadContent(
@@ -20,7 +23,7 @@ Future<({PhysicsConfig physics, EconomyConfig economy, List<Level> levels})> loa
   final economy = EconomyConfig.parse(await bundle.loadString('assets/config/economy.json'));
   final levels = <Level>[
     for (var i = 1; i <= levelCount; i++)
-      Level.parse(await bundle.loadString('assets/levels/level_${i.toString().padLeft(2, '0')}.json')),
+      Level.parse(await bundle.loadString('assets/levels/level_${i.toString().padLeft(3, '0')}.json')),
   ];
   return (physics: physics, economy: economy, levels: levels);
 }

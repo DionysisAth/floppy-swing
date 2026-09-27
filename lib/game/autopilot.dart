@@ -59,7 +59,7 @@ class Autopilot {
     final goingRight = sim.level.finish.x >= torso.x;
 
     if (_pressed && sim.isAttached) {
-      final a = sim.level.anchors[sim.ropeAnchor];
+      final a = sim.anchorAt(sim.ropeAnchor);
       // Angle of the rope measured from straight down, positive towards the
       // finish.
       final dx = (torso.x - a.x) * (goingRight ? 1 : -1);
@@ -87,7 +87,7 @@ class Autopilot {
     if (sim.startedAt != null && v.y < params.minFallSpeed) return;
     final best = sim.bestAnchor();
     if (best < 0) return;
-    final a = sim.level.anchors[best];
+    final a = sim.anchorAt(best);
     // Don't grab anchors well behind us (unless we're stuck and slow).
     final behind = (a.x - torso.x) * (goingRight ? 1 : -1) < -1.0;
     if (behind && v.length > 3) return;
@@ -99,7 +99,7 @@ class Autopilot {
 
 /// Result of running the autopilot on a level.
 class AutopilotRun {
-  const AutopilotRun(this.params, this.status, this.time, this.coins, this.x);
+  const AutopilotRun(this.params, this.status, this.time, this.coins, this.x, [this.events = const []]);
   final AutopilotParams params;
   final SimStatus status;
   final double time;
@@ -107,6 +107,9 @@ class AutopilotRun {
 
   /// How far the run got horizontally.
   final double x;
+
+  /// Everything that happened during the run.
+  final List<SimEvent> events;
 
   bool get finished => status == SimStatus.finished;
 }
@@ -146,5 +149,6 @@ AutopilotRun runAutopilot(
     sim.runTime,
     sim.coinCount,
     sim.ragdoll.torso.position.x,
+    sim.events,
   );
 }

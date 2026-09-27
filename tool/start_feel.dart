@@ -10,7 +10,7 @@ import 'package:floppy_swing/game/simulation.dart';
 void main() {
   final cfg = PhysicsConfig.parse(File('assets/config/physics.json').readAsStringSync());
   for (final id in [1, 5, 9]) {
-    final level = Level.parse(File('assets/levels/level_${id.toString().padLeft(2, '0')}.json').readAsStringSync());
+    final level = Level.parse(File('assets/levels/level_${id.toString().padLeft(3, '0')}.json').readAsStringSync());
     final sim = Simulation(level, cfg);
     for (var i = 0; i < 60; i++) {
       sim.step();

@@ -24,6 +24,10 @@ class PhysicsConfig {
     this.ropeSnapKeep = 0.85,
     this.ropeSnapMaxSpeed = 18.0,
     this.ropeSlackTakeUp = 14.0,
+    this.glassBreakSpeed = 7.0,
+    this.crumbleDelay = 0.7,
+    this.rocketKnock = 13.0,
+    this.rocketHitRadius = 0.8,
     this.assistBelowSpeed = 8.0,
     this.anchorForwardBias = 0.45,
     this.anchorBelowPenalty = 0.6,
@@ -60,6 +64,10 @@ class PhysicsConfig {
     ropeSnapKeep: _d(m, 'ropeSnapKeep', 0.85),
     ropeSnapMaxSpeed: _d(m, 'ropeSnapMaxSpeed', 18.0),
     ropeSlackTakeUp: _d(m, 'ropeSlackTakeUp', 14.0),
+    glassBreakSpeed: _d(m, 'glassBreakSpeed', 7.0),
+    crumbleDelay: _d(m, 'crumbleDelay', 0.7),
+    rocketKnock: _d(m, 'rocketKnock', 13.0),
+    rocketHitRadius: _d(m, 'rocketHitRadius', 0.8),
     assistBelowSpeed: _d(m, 'assistBelowSpeed', 8.0),
     anchorForwardBias: _d(m, 'anchorForwardBias', 0.45),
     anchorBelowPenalty: _d(m, 'anchorBelowPenalty', 0.6),
@@ -137,6 +145,19 @@ class PhysicsConfig {
   /// How fast (m/s) a slack rope takes in the extra length, so the drop
   /// before it catches is short.
   final double ropeSlackTakeUp;
+
+  /// Glass panes shatter when hit at least this fast (m/s); slower hits
+  /// just bonk off.
+  final double glassBreakSpeed;
+
+  /// Seconds between first touching a crumbling platform and it falling.
+  final double crumbleDelay;
+
+  /// Speed (m/s) a rocket blast knocks the character with.
+  final double rocketKnock;
+
+  /// How close (m) a rocket must pass to a body part to hit.
+  final double rocketHitRadius;
 
   /// How strongly anchor picking prefers anchors in the direction of travel.
   final double anchorForwardBias;

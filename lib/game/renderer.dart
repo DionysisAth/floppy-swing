@@ -1722,6 +1722,11 @@ class WorldRenderer {
           }
         case EventKind.grab:
         case EventKind.release:
+        case EventKind.shatter:
+        case EventKind.crumble:
+        case EventKind.rocket:
+        case EventKind.boom:
+        case EventKind.flip:
           break;
       }
     }

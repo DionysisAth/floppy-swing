@@ -142,6 +142,17 @@ def sfx():
     write('slowmo.wav', mix(sweep(320, 55, 0.8, 'saw', decay=0.35, curve=0.6),
                             scale(noise(0.8, decay=0.3, smooth=0.9), 0.6)), 0.55)
     write('click.wav', sweep(1400, 900, 0.025, decay=0.008), 0.4)
+    # Glass: a bright crack plus a shower of tinkly shards.
+    shards = [partials([(2600 + 900 * k, 1), (5200 + 700 * k, 0.4)], 0.25, 0.06) for k in range(6)]
+    write('shatter.wav', mix(scale(noise(0.3, decay=0.08), 0.7), *[scale(s, 0.5) for s in shards],
+                             offsets=[0] + [0.02 + 0.035 * k for k in range(6)]), 0.7)
+    write('crumble.wav', mix(scale(noise(0.45, decay=0.15, smooth=0.7), 1.0),
+                             sweep(120, 60, 0.4, 'triangle', decay=0.15)), 0.6)
+    write('rocket.wav', mix(scale(noise(0.6, decay=0.3, smooth=0.5), 0.8),
+                            sweep(300, 900, 0.5, 'saw', decay=0.25)), 0.45)
+    write('boom.wav', mix(sweep(120, 35, 0.6, decay=0.2, curve=0.5),
+                          scale(noise(0.6, decay=0.18, smooth=0.55), 1.2)), 0.8)
+    write('flip.wav', sweep(250, 1200, 0.35, 'sine', decay=None, vib=0.05, vib_rate=18), 0.5)
     write('buy.wav', mix(sweep(1319, 1319, 0.08, 'square', decay=0.05), sweep(1760, 1760, 0.08, 'square', decay=0.05),
                          partials([(2093, 1), (4186, 0.3)], 0.5, 0.15), offsets=[0, 0.07, 0.15]), 0.5)
 

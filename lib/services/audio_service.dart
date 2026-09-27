@@ -54,6 +54,11 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
     'slowmo.wav': 1,
     'click.wav': 2,
     'buy.wav': 1,
+    'shatter.wav': 2,
+    'crumble.wav': 2,
+    'rocket.wav': 2,
+    'boom.wav': 2,
+    'flip.wav': 2,
   };
   static const music = 'music.wav';
 
@@ -214,6 +219,18 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
         _haptic(HapticFeedback.mediumImpact);
       case EventKind.style:
         play('pop.wav', volume: 0.7);
+      case EventKind.shatter:
+        play('shatter.wav');
+        _haptic(HapticFeedback.mediumImpact);
+      case EventKind.crumble:
+        play('crumble.wav', volume: e.label == 'fall' ? 1.0 : 0.5);
+      case EventKind.rocket:
+        play('rocket.wav', volume: 0.6);
+      case EventKind.boom:
+        play('boom.wav', volume: e.label == 'hit' ? 1.0 : 0.5);
+        if (e.label == 'hit') _haptic(HapticFeedback.heavyImpact);
+      case EventKind.flip:
+        play('flip.wav', volume: 0.7);
     }
   }
 
