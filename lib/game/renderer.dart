@@ -8,6 +8,8 @@ import 'ragdoll.dart';
 import 'simulation.dart';
 import 'skins.dart';
 
+part 'renderer_worlds.dart';
+
 /// Camera: centre point and visible width, all in meters.
 class Cam {
   const Cam(this.x, this.y, this.w);
@@ -68,6 +70,7 @@ class WorldTheme {
     required this.cloudShade,
     required this.sunX,
     required this.sunY,
+    this.backdrop = Backdrop.hills,
   });
 
   final Color skyTop;
@@ -87,6 +90,9 @@ class WorldTheme {
   /// Sun position as a fraction of the screen.
   final double sunX;
   final double sunY;
+
+  /// Scenery drawn behind the level.
+  final Backdrop backdrop;
 
   static const morning = WorldTheme(
     skyTop: Color(0xFF4FAEF7),
@@ -161,16 +167,26 @@ class WorldTheme {
       cloudShade: c(a.cloudShade, b.cloudShade),
       sunX: d(a.sunX, b.sunX),
       sunY: d(a.sunY, b.sunY),
+      backdrop: a.backdrop,
     );
   }
 
-  /// Theme for campaign level [id] (1-15); anything else gets the morning.
+  /// Theme for campaign level [id]; anything below 1 gets the morning.
+  /// Each world of 20 levels drifts between its own keyframes.
   static WorldTheme forLevel(int id) {
     if (id < 1) return morning;
-    final t = ((id - 1) / 14).clamp(0.0, 1.0);
-    return t < 0.5
-        ? lerp(morning, golden, t * 2)
-        : lerp(golden, sunset, (t - 0.5) * 2);
+    final world = (id - 1) ~/ 20 + 1;
+    final t = ((id - 1) % 20) / 19;
+    return switch (world) {
+      1 =>
+        t < 0.5
+            ? lerp(morning, golden, t * 2)
+            : lerp(golden, sunset, (t - 0.5) * 2),
+      2 => lerp(WorldThemes.factoryStart, WorldThemes.factoryEnd, t),
+      3 => lerp(WorldThemes.cityStart, WorldThemes.cityEnd, t),
+      4 => lerp(WorldThemes.skyStart, WorldThemes.skyEnd, t),
+      _ => lerp(WorldThemes.baseStart, WorldThemes.baseEnd, t),
+    };
   }
 }
 
@@ -243,9 +259,40 @@ class WorldRenderer {
         wt,
       );
     }
+    for (final w in level.winds) {
+      final b = w.box;
+      if (_visible(view, b.x, b.y, math.max(b.w, b.h))) {
+        _drawWind(canvas, w, wt);
+      }
+    }
+    for (final b in level.flips) {
+      if (_visible(view, b.x, b.y, math.max(b.w, b.h))) {
+        _drawFlipZone(canvas, b, wt);
+      }
+    }
+    for (final a in level.anchors) {
+      if (a.moving) _drawRail(canvas, a);
+    }
     for (final p in level.platforms) {
       if (_visible(view, p.x, p.y, math.max(p.w, p.h))) {
-        _drawPlatform(canvas, p);
+        if (theme.backdrop == Backdrop.hills) {
+          _drawPlatform(canvas, p);
+        } else {
+          _drawSlab(canvas, p);
+        }
+      }
+    }
+    for (var i = 0; i < level.crumbles.length && s.crumbles.isNotEmpty; i++) {
+      final b = level.crumbles[i];
+      final x = s.crumbles[i * 3], y = s.crumbles[i * 3 + 1];
+      if (_visible(view, x, y, math.max(b.w, b.h))) {
+        _drawCrumble(canvas, i, s, events, time, wt);
+      }
+    }
+    for (var i = 0; i < level.glass.length; i++) {
+      final g = level.glass[i];
+      if (!s.glassIsBroken(i) && _visible(view, g.x, g.y, math.max(g.w, g.h))) {
+        _drawGlass(canvas, g, wt);
       }
     }
     for (final sp in level.spikes) {
@@ -265,8 +312,9 @@ class WorldRenderer {
         _drawSaw(canvas, x, y, level.saws[i].r, a);
       }
     }
+    _drawRockets(canvas, view, s, wt);
     for (var i = 0; i < level.anchors.length; i++) {
-      final a = level.anchors[i];
+      final a = _anchorPos(s, i);
       if (!_visible(view, a.x, a.y, 2)) continue;
       _drawAnchor(
         canvas,
@@ -293,6 +341,11 @@ class WorldRenderer {
     _drawVignette(canvas, size);
   }
 
+  /// Where anchor [i] is in [s] (snapshots built by hand may not carry
+  /// anchor positions; those fall back to the level's layout).
+  P _anchorPos(Snapshot s, int i) =>
+      s.anchors.length >= (i + 1) * 2 ? P(s.ax(i), s.ay(i)) : level.anchors[i];
+
   bool _visible(Rect view, double x, double y, double size) =>
       x + size > view.left &&
       x - size < view.right &&
@@ -314,6 +367,8 @@ class WorldRenderer {
         EventKind.bonk => e.value > 11 ? 0.18 : 0.0,
         EventKind.bounce => 0.12,
         EventKind.launch => 0.14,
+        EventKind.shatter => 0.16,
+        EventKind.boom => e.label == 'hit' ? 0.4 : 0.1,
         _ => 0.0,
       };
       if (strength > 0) {
@@ -346,6 +401,8 @@ class WorldRenderer {
       const [0, 0.55, 1],
     );
     canvas.drawRect(rect, _fill);
+    _fill.shader = null;
+    _drawStars(canvas, size, wt);
 
     // Sun with a soft glow.
     final sun = Offset(
@@ -375,6 +432,10 @@ class WorldRenderer {
       _cloud(canvas, Offset(x, y), cloudPx * (1.3 + (i % 3) * 0.35));
     }
 
+    if (theme.backdrop != Backdrop.hills) {
+      _drawWorldBackdrop(canvas, size, cam, scale, wt);
+      return;
+    }
     _mountains(canvas, size, cam, scale);
     _hills(
       canvas,
@@ -1155,7 +1216,7 @@ class WorldRenderer {
     List<SimEvent> events,
     double time,
   ) {
-    final a = level.anchors[s.ropeAnchor];
+    final a = _anchorPos(s, s.ropeAnchor);
     final hand = handPosition(s);
     final anchor = Offset(a.x, a.y);
     // The rope shoots out over the first few frames after a grab.
@@ -1720,13 +1781,24 @@ class WorldRenderer {
                 .any((o) => o.kind == EventKind.grab);
             _launchBurst(canvas, e.x, e.y, age / 0.6, first: first);
           }
+        case EventKind.shatter:
+          if (age < 0.9) _shards(canvas, e.x, e.y, age, idx);
+          if (age < 0.5) {
+            _comicText(canvas, 'SMASH!', e.x, e.y - 2.2, age / 0.5, 0.9);
+          }
+        case EventKind.boom:
+          if (age < 0.6) _explosion(canvas, e.x, e.y, age / 0.6, idx);
+          if (e.label == 'hit' && age < 0.7) {
+            _comicText(canvas, 'KABOOM!', e.x, e.y - 1.8, age / 0.7, 1.2);
+          }
+        case EventKind.crumble:
+          if (age < 0.45) _dust(canvas, e.x, e.y, age / 0.45, idx);
+        case EventKind.flip:
+          if (age < 0.4) _flipSparkle(canvas, e.x, e.y, age / 0.4);
+        case EventKind.rocket:
+          if (age < 0.5) _dust(canvas, e.x, e.y, age / 0.5, idx);
         case EventKind.grab:
         case EventKind.release:
-        case EventKind.shatter:
-        case EventKind.crumble:
-        case EventKind.rocket:
-        case EventKind.boom:
-        case EventKind.flip:
           break;
       }
     }

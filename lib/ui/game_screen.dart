@@ -10,6 +10,7 @@ import '../game/floppy_game.dart';
 import '../game/game_controller.dart';
 import '../game/simulation.dart';
 import '../game/skins.dart';
+import '../game/worlds.dart';
 import '../services/clip_exporter.dart';
 import '../services/progress.dart';
 import 'theme.dart';
@@ -59,7 +60,7 @@ class _GameScreenState extends State<GameScreen> {
     GameScreen.debugLastController = _controller;
     _lastAttempt = c.attempts;
     _services.analytics.levelStart(level.id, c.attempts);
-    _services.audio.startMusic();
+    _services.audio.startMusic(world: level.world);
   }
 
   @override
@@ -155,7 +156,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _next() {
     final next = _services.levelById(widget.levelId + 1);
-    if (next == null) {
+    if (next == null || !_services.progress.isUnlocked(next.id)) {
       Navigator.of(context).pop();
     } else {
       Navigator.of(context).pushReplacement(popRoute(GameScreen(levelId: next.id)));
@@ -294,7 +295,11 @@ class _GameScreenState extends State<GameScreen> {
     final r = c.result!;
     final reward = _reward;
     final rec = _services.progress.record(c.level.id);
-    final hasNext = _services.levelById(widget.levelId + 1) != null;
+    final next = _services.levelById(widget.levelId + 1);
+    final hasNext = next != null && _services.progress.isUnlocked(next.id);
+    final worldClear = c.level.id % WorldInfo.levelsPerWorld == 0;
+    // Finished a world but the next one still needs stars.
+    final gate = next != null && !hasNext ? WorldInfo.byNumber(next.world) : null;
     return Positioned.fill(
       child: ColoredBox(
         color: AppColors.scrim,
@@ -306,7 +311,7 @@ class _GameScreenState extends State<GameScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(hasNext ? 'LEVEL CLEAR!' : 'WORLD CLEAR!', style: display(40, color: AppColors.orange)),
+                    Text(worldClear ? 'WORLD CLEAR!' : 'LEVEL CLEAR!', style: display(40, color: AppColors.orange)),
                     const SizedBox(height: 8),
                     _StarReveal(mask: r.starMask),
                     const SizedBox(height: 10),
@@ -331,6 +336,15 @@ class _GameScreenState extends State<GameScreen> {
                             Text('(+${reward.newStars} ${reward.newStars == 1 ? 'star' : 'stars'})', style: body(16, weight: 600)),
                           ],
                         ],
+                      ),
+                    if (gate != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Collect ${gate.starsNeeded - _services.progress.totalStars} more stars to open ${gate.name}!',
+                          textAlign: TextAlign.center,
+                          style: body(16, weight: 700),
+                        ),
                       ),
                     const SizedBox(height: 14),
                     if (reward != null && !_doubled)

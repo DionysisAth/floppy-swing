@@ -394,6 +394,15 @@ Float32List _lerpTriples(Float32List a, Float32List b, double t) {
   return out;
 }
 
+Float32List _lerpList(Float32List a, Float32List b, double t) {
+  if (a.length != b.length) return b;
+  final out = Float32List(a.length);
+  for (var i = 0; i < a.length; i++) {
+    out[i] = a[i] + (b[i] - a[i]) * t;
+  }
+  return out;
+}
+
 /// Blends two frames for smooth rendering above the physics rate.
 Frame lerpFrame(Frame a, Frame b, double t) {
   if (t <= 0) return a;
@@ -413,6 +422,10 @@ Frame lerpFrame(Frame a, Frame b, double t) {
       vy: s.vy,
       status: s.status,
       runTime: s.runTime,
+      anchors: _lerpList(a.s.anchors, s.anchors, t),
+      glassBroken: s.glassBroken,
+      crumbles: _lerpTriples(a.s.crumbles, s.crumbles, t),
+      explodedRockets: s.explodedRockets,
     ),
     a.cam.lerp(b.cam, t),
   );

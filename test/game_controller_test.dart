@@ -141,4 +141,20 @@ void main() {
     expect(m.s.px(0), closeTo((a.s.px(0) + b.s.px(0)) / 2, 1e-4));
     expect(m.cam, isA<Cam>());
   });
+
+  test('lerpFrame keeps moving anchors, crumbles and broken glass', () {
+    final levels = loadLevels();
+    for (final id in [21, 41, 81]) {
+      final c = GameController(level: levels[id - 1], cfg: cfg, skin: skins.first);
+      tickFor(c, 0.5);
+      final a = c.history.elementAt(c.history.length - 2), b = c.history.last;
+      final m = lerpFrame(a, b, 0.5);
+      expect(m.s.anchors, hasLength(b.s.anchors.length), reason: 'level $id');
+      expect(m.s.crumbles, hasLength(b.s.crumbles.length), reason: 'level $id');
+      expect(m.s.glassBroken, b.s.glassBroken);
+      if (m.s.anchors.isNotEmpty) {
+        expect(m.s.ax(0), closeTo((a.s.ax(0) + b.s.ax(0)) / 2, 1e-4));
+      }
+    }
+  });
 }

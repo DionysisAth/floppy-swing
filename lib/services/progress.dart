@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../game/config.dart';
 import '../game/game_controller.dart';
 import '../game/skins.dart';
+import '../game/worlds.dart';
 
 class LevelRecord {
   LevelRecord({this.stars = 0, this.bestTime, this.bestStyle = 0});
@@ -125,8 +126,25 @@ class ProgressStore extends ChangeNotifier {
   LevelRecord record(int id) => levels[id] ?? LevelRecord();
 
   /// Level 1 is always open; every other level opens when the previous one
-  /// is finished.
-  bool isUnlocked(int id) => id <= 1 || record(id - 1).completed;
+  /// is finished, and the first level of a world also needs its world open.
+  bool isUnlocked(int id) {
+    if (id <= 1) return true;
+    if (!record(id - 1).completed) return false;
+    return isWorldUnlocked(WorldInfo.ofLevel(id));
+  }
+
+  /// Whether the player has collected enough stars for world [n].
+  bool isWorldUnlocked(int n) => totalStars >= WorldInfo.byNumber(n).starsNeeded;
+
+  /// Stars in world [n].
+  int worldStars(int n) {
+    final w = WorldInfo.byNumber(n);
+    var total = 0;
+    for (var id = w.firstLevel; id <= w.lastLevel; id++) {
+      total += record(id).starCount;
+    }
+    return total;
+  }
 
   int get totalStars => levels.values.fold(0, (s, r) => s + r.starCount);
 

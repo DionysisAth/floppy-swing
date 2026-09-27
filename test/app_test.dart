@@ -53,7 +53,9 @@ void main() {
     await frames(tester, 25);
     expect(find.byType(LevelSelectScreen), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
-    expect(find.byIcon(Icons.lock_rounded), findsNWidgets(levelCount - 1));
+    expect(find.text('World 1'.toUpperCase()), findsOneWidget);
+    expect(find.text('Playground'), findsOneWidget);
+    expect(find.byIcon(Icons.lock_rounded), findsNWidgets(19), reason: 'rest of world 1 locked');
 
     await tester.tap(find.text('1'));
     await frames(tester, 25);

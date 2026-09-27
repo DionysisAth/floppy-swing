@@ -62,6 +62,25 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
   };
   static const music = 'music.wav';
 
+  /// Each world has its own soundtrack.
+  static String trackFor(int world) => switch (world) {
+    2 => 'music_factory.wav',
+    3 => 'music_city.wav',
+    4 => 'music_sky.wav',
+    5 => 'music_base.wav',
+    _ => music,
+  };
+
+  String _track = music;
+
+  /// Music player calls run one at a time, in order, so a track change can't
+  /// race a pause or resume.
+  Future<void> _musicOps = Future.value();
+
+  void _queueMusic(Future<void> Function() op) {
+    _musicOps = _musicOps.then((_) => op()).catchError((_) {});
+  }
+
   /// Sound effects mix with the music and never grab audio focus, so a
   /// "bonk" can't pause the soundtrack (or another app's audio).
   static final _context = AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers).build();
@@ -83,7 +102,7 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
       final m = AudioPlayer(playerId: 'music');
       await m.setAudioContext(_context);
       await m.setReleaseMode(ReleaseMode.loop);
-      await m.setSource(AssetSource('audio/$music'));
+      await m.setSource(AssetSource('audio/$_track'));
       _music = m;
       WidgetsBinding.instance.addObserver(this);
       _ready = true;
@@ -125,10 +144,24 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
 
   // ----------------------------------------------------------------- music
 
-  /// Starts (or re-applies the volume of) the background music.
-  void startMusic() {
+  /// Starts (or re-applies the volume of) the background music, switching
+  /// to [world]'s track when given.
+  void startMusic({int? world}) {
     _musicWanted = true;
+    if (world != null) _setTrack(trackFor(world));
     _syncMusic();
+  }
+
+  void _setTrack(String name) {
+    final m = _music;
+    if (name == _track) return;
+    _track = name;
+    if (!_ready || m == null) return;
+    _musicPlaying = false;
+    _queueMusic(() async {
+      await m.stop();
+      await m.setSource(AssetSource('audio/$name'));
+    });
   }
 
   void stopMusic() {
@@ -141,20 +174,17 @@ class AudioService with WidgetsBindingObserver implements GameFeedback {
     if (!_ready || m == null) return;
     final v = progress.musicVolume;
     final shouldPlay = _musicWanted && _inForeground && v > 0.01;
-    unawaited(() async {
-      try {
-        if (shouldPlay) {
-          await m.setVolume(v);
-          if (!_musicPlaying) {
-            _musicPlaying = true;
-            await m.resume();
-          }
-        } else if (_musicPlaying) {
-          _musicPlaying = false;
-          await m.pause();
-        }
-      } catch (_) {}
-    }());
+    if (shouldPlay) {
+      final resume = !_musicPlaying;
+      _musicPlaying = true;
+      _queueMusic(() async {
+        await m.setVolume(v);
+        if (resume) await m.resume();
+      });
+    } else if (_musicPlaying) {
+      _musicPlaying = false;
+      _queueMusic(m.pause);
+    }
   }
 
   /// Pause everything when the app leaves the screen (home button, app

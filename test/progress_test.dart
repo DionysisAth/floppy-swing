@@ -27,6 +27,32 @@ void main() {
     expect(p.isUnlocked(3), isFalse);
   });
 
+  test('new worlds also need enough stars', () {
+    final p = ProgressStore.memory(economy);
+    for (var id = 1; id <= 20; id++) {
+      p.recordWin(id, result(time: 50, coins: 0)); // One star each.
+    }
+    expect(p.totalStars, 20);
+    expect(p.isWorldUnlocked(2), isTrue, reason: 'world 2 needs 15 stars');
+    expect(p.isUnlocked(21), isTrue);
+    for (var id = 21; id <= 40; id++) {
+      p.recordWin(id, result(time: 50, coins: 0));
+    }
+    expect(p.totalStars, 40);
+    expect(p.isUnlocked(41), isTrue);
+    for (var id = 41; id <= 60; id++) {
+      p.recordWin(id, result(time: 50, coins: 0));
+    }
+    expect(p.isUnlocked(61), isFalse, reason: 'world 4 needs 70 stars, only 60');
+    expect(p.worldStars(3), 20);
+    p.recordWin(1, result());
+    for (var id = 2; id <= 5; id++) {
+      p.recordWin(id, result());
+    }
+    expect(p.totalStars, 70);
+    expect(p.isUnlocked(61), isTrue);
+  });
+
   test('rewards pay for pickups, completion and only new stars', () {
     final p = ProgressStore.memory(economy);
     final first = p.recordWin(1, result(time: 50, coins: 2));

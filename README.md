@@ -11,22 +11,28 @@ shared as vertical clips.
 
 This is the **MVP milestone** from the design document (section 15).
 
-## What's in the MVP
+## What's in the game
 
 - **Slingshot start:** the first grab from the ground flings the character straight into a full-speed swing, and slow swings get extra pump until they're moving.
-- **Themed worlds:** levels drift from bright morning through golden afternoon to sunset, with a sun, parallax mountains, hills and trees, a motion trail, speed lines, dust puffs and screen shake.
+- **Themed worlds:** each world has its own backdrop (hills, factory skyline, city, floating islands, rocket base), its own soundtrack, and a sky that drifts across its 20 levels (e.g. morning to sunset, day to night). Plus a motion trail, speed lines, dust puffs and screen shake.
 - **One-touch controls:** hold to grab the nearest ring in range (it glows), release to let go.
 - **Floppy 2D ragdoll**, 10 parts on limited revolute joints, with a rope (max-length joint) on the front hand.
 - **Obstacles:** spikes, spinning saws (static and moving), bounce pads, plus a spike pit.
-- **15 levels** (World 1 "Playground"), each with a finish, coins, a target time, and checkpoints on longer levels.
+- **100 levels in 5 worlds**, each with a finish, coins, a target time, and checkpoints on longer levels:
+  - World 1 **Playground**: spikes, saws and bounce pads.
+  - World 2 **Factory** (15 stars): rings that ride on rails, and moving saws.
+  - World 3 **Glass City** (40 stars): glass that smashes when you hit it fast enough, and pads.
+  - World 4 **Sky Islands** (70 stars): wind fans that blow you up or along, and zones that flip gravity.
+  - World 5 **Rocket Base** (100 stars): platforms that crumble after you touch them, and rockets that knock you flying.
+- **World select:** swipe between worlds. A world opens when you have its stars and have finished the world before it.
 - **Instant retry:** tap during or after a fail to restart. There are no menus in between, and rebuilding the physics world takes about 1–2 ms.
 - **Slow-motion fail replay:** a zoomed 0.4× replay with a comic burst and a second helping of the fail sound. Tap to skip.
 - **Share clip:** a 720×1280 (9:16) MP4 of the last few seconds plus the slow-mo replay, with a watermark and a "Can you do better?" end card, shared through the native share sheet.
 - **Stars** (finish, target time, all coins), **coins**, and **style points** (flips, close calls, hang time, big swings, combos).
 - **6 skins**: 1 free and 5 unlockable with coins. Each has its own fail sound.
 - **Rewarded ads:** revive at a checkpoint (or pay coins), and double coins after a level. There are no interstitials, and never an ad right after a fail.
-- Menu with an attract-mode demo (the autopilot plays level 1), level select, skins shop, settings (music and SFX volume, mute, vibration, privacy options, reset).
-- Generated sound effects and chiptune music (`tool/gen_audio.py`), plus haptics.
+- Menu with an attract-mode demo (the autopilot plays level 1), world and level select, skins shop, settings (music and SFX volume, mute, vibration, privacy options, reset).
+- Generated sound effects and a chiptune track per world (`tool/gen_audio.py`), plus haptics.
 
 ## Tech choices (the doc's open decisions)
 
@@ -55,9 +61,11 @@ lib/
     simulation.dart   Headless, deterministic physics sim: rope, hazards, pickups, style
     ragdoll.dart      Ragdoll body parts and joints
     level.dart        Level model / JSON format
+    worlds.dart       World names, star gates, colours
     config.dart       Physics + economy config (loaded from JSON)
     game_controller.dart  Fixed-step loop, camera, phases, retry, replay, revive
     renderer.dart     Draws a frame (used for live play, replays and clip export)
+    renderer_worlds.dart  World 2-5 themes, backdrops and mechanic art
     autopilot.dart    Bot player (level verification + menu demo)
     skins.dart        Skin catalogue
     floppy_game.dart  Thin Flame wrapper
@@ -66,12 +74,13 @@ lib/
 assets/
   config/physics.json   <- tune the feel here
   config/economy.json
-  levels/level_XX.json
+  levels/level_XXX.json  1-15 hand-made, 16-100 generated
   audio/, fonts/
 android/.../VideoEncoderPlugin.kt   MediaCodec MP4 encoder for clips
 ios/Runner/AppDelegate.swift        AVAssetWriter MP4 encoder for clips
 tool/
   check_levels.dart   Proves every level is beatable (and can auto-place coins)
+  gen_levels.dart     Generates levels 16-100 from a seed per level
   death_map.dart      Shows where the bot dies on a level
   gen_audio.py        Synthesises all sounds and music
 ```
@@ -104,6 +113,19 @@ dart run tool/check_levels.dart --balance  # also re-place coins along a proven 
 flutter test test/levels_test.dart
 ```
 
+Levels 16–100 come from `tool/gen_levels.dart`. It builds each level from
+segments (gaps, saw corridors, glass walls, wind shafts, rocket gaps...) seeded
+by the level id, with difficulty ramping through each world. It keeps a layout
+only if the bot finishes it at least 3 ways and one of those runs actually uses
+the world's mechanic; the coin trail then follows that run.
+
+```bash
+dart run tool/gen_levels.dart          # regenerate 16-100
+dart run tool/gen_levels.dart 42 43    # just these ids
+```
+
+Regenerating overwrites hand edits to those files.
+
 ## Level format
 
 Meters with **y pointing down**. Boxes are `[centerX, centerY, width, height, angleDeg?]`.
@@ -122,6 +144,23 @@ Meters with **y pointing down**. Boxes are `[centerX, centerY, width, height, an
   "checkpoints": [[50, 0.5]]
 }
 ```
+
+Worlds 2–5 add:
+
+```json
+{
+  "anchors": [[5, -8], [9, -8, 15, -8, 3, 0.25]],
+  "glass": [[20, -3, 0.4, 6]],
+  "winds": [[30, 0, 3, 10, 0, 35]],
+  "flips": [[40, -4, 5, 6]],
+  "crumbles": [[50, 0, 4, 0.8]],
+  "rockets": [{"x": 60, "y": 5, "angle": -90, "speed": 9, "period": 3, "phase": 0, "range": 22}]
+}
+```
+
+- A moving anchor is `[x, y, toX, toY, periodSeconds, phase]` and ping-pongs between the two points.
+- Winds are `[cx, cy, w, h, angleDeg, strength]`, where angle 0 blows up.
+- Rocket angles are in degrees; -90 fires straight up.
 
 Rules the tests enforce: the first anchor must be reachable from the start
 platform, and every checkpoint needs an anchor in reach, because revives spawn
@@ -142,5 +181,5 @@ there.
 ## Not in the MVP (next milestones)
 
 Gems and real-money IAP, Season Pass, Daily Challenge and leaderboards, Endless
-mode, Friend Ghosts, Fail of the Week, Worlds 2–5, interstitial ads, cloud
+mode, Friend Ghosts, Fail of the Week, interstitial ads, cloud
 save, and paid fail effects and trails.

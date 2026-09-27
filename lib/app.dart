@@ -12,9 +12,6 @@ import 'ui/theme.dart';
 /// Number of campaign levels shipped in `assets/levels/`.
 const levelCount = 100;
 
-/// Levels per world.
-const levelsPerWorld = 20;
-
 /// Loads configs and levels from the asset bundle.
 Future<({PhysicsConfig physics, EconomyConfig economy, List<Level> levels})> loadContent(
   AssetBundle bundle,

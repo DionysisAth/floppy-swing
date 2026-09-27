@@ -169,19 +169,72 @@ def freq(name):
     return 440.0 * 2 ** ((semis - 9) / 12 + (octave - 4))
 
 
-def music():
-    bpm = 132
+SONGS = {
+    # World 1, Hills: bouncy C major.
+    'music.wav': dict(
+        bpm=132, style='pop', lead=('pulse', 0.25), gain=0.16,
+        chords=[['C3', 'E4', 'G4'], ['G2', 'D4', 'B3'], ['A2', 'C4', 'E4'], ['F2', 'A3', 'C4']] * 2,
+        melody=[
+            'E5 G5 - C6 B5 G5 E5 -', 'D5 - G5 ~ F5 E5 D5 -',
+            'C5 E5 A5 ~ G5 E5 C5 -', 'F5 ~ E5 D5 C5 - A4 -',
+            'E5 G5 - C6 B5 G5 E5 G5', 'D5 - B5 ~ A5 G5 D5 -',
+            'C5 E5 A5 G5 E5 C5 E5 -', 'F5 E5 D5 B4 C5 ~ ~ -',
+        ]),
+    # World 2, Factory: clanky A minor.
+    'music_factory.wav': dict(
+        bpm=120, style='factory', lead=('pulse', 0.5), gain=0.12,
+        chords=[['A2', 'C4', 'E4'], ['F2', 'A3', 'C4'], ['G2', 'B3', 'D4'], ['E2', 'G#3', 'B3']] * 2,
+        melody=[
+            'A4 - C5 A4 E5 - D5 C5', 'A4 ~ ~ - F4 A4 C5 -',
+            'B4 - D5 B4 G5 ~ F5 D5', 'E5 ~ D5 C5 B4 - G#4 -',
+            'A4 C5 E5 A5 G5 E5 C5 -', 'F5 ~ E5 C5 A4 - C5 -',
+            'D5 B4 G4 B4 D5 F5 E5 D5', 'E5 ~ ~ - B4 ~ ~ -',
+        ]),
+    # World 3, Glass City: sparkly D major, four on the floor.
+    'music_city.wav': dict(
+        bpm=140, style='city', lead=('tri', 0.5), gain=0.24,
+        chords=[['D3', 'F#4', 'A4'], ['B2', 'D4', 'F#4'], ['G2', 'B3', 'D4'], ['A2', 'C#4', 'E4']] * 2,
+        melody=[
+            'F#5 A5 D6 A5 F#5 A5 D6 -', 'F#5 ~ E5 D5 B4 D5 F#5 -',
+            'G5 B5 D6 B5 G5 ~ E5 -', 'A5 ~ G5 F#5 E5 ~ C#5 -',
+            'F#5 A5 D6 A5 F#5 A5 B5 A5', 'F#5 ~ D5 F#5 B5 ~ A5 -',
+            'G5 F#5 E5 D5 B4 D5 G5 -', 'A5 G5 F#5 E5 D5 ~ ~ -',
+        ]),
+    # World 4, Sky Islands: floaty F major.
+    'music_sky.wav': dict(
+        bpm=112, style='sky', lead=('tri', 0.5), gain=0.26,
+        chords=[['F2', 'A3', 'C4'], ['D2', 'F3', 'A3'], ['A#1', 'D3', 'F3'], ['C2', 'E3', 'G3']] * 2,
+        melody=[
+            'C5 ~ F5 ~ A5 ~ G5 F5', 'D5 ~ ~ F5 A5 ~ ~ -',
+            'A#4 ~ D5 F5 A#5 ~ A5 G5', 'G5 ~ ~ ~ E5 ~ C5 -',
+            'C5 ~ F5 A5 C6 ~ A5 F5', 'D5 ~ F5 A5 D6 ~ C6 A5',
+            'A#5 ~ A5 G5 F5 ~ D5 F5', 'G5 ~ ~ ~ F5 ~ ~ -',
+        ]),
+    # World 5, Rocket Base: driving D minor.
+    'music_base.wav': dict(
+        bpm=150, style='base', lead=('pulse', 0.125), gain=0.15,
+        chords=[['D2', 'F3', 'A3'], ['A#1', 'D3', 'F3'], ['C2', 'E3', 'G3'], ['A1', 'C#3', 'E3']] * 2,
+        melody=[
+            'D5 D5 F5 D5 A5 - G5 F5', 'A#4 ~ D5 F5 A#5 ~ A5 G5',
+            'C5 E5 G5 C6 A#5 - A5 G5', 'A5 ~ ~ - C#5 E5 A5 -',
+            'D5 D5 F5 D5 A5 - D6 C6', 'A#5 ~ A5 G5 F5 - D5 F5',
+            'E5 - G5 E5 C5 - E5 G5', 'A5 G5 F5 E5 D5 ~ ~ -',
+        ]),
+}
+
+
+def music(name, bpm, style, lead, gain, chords, melody):
     beat = 60 / bpm
     eighth = beat / 2
-    bars = 8
+    bars = len(melody)
     total = n(bars * 4 * beat)
     out = [0.0] * total
 
-    def add(start, samples, gain):
+    def add(start, samples, g):
         s0 = n(start)
         for i, v in enumerate(samples):
             if s0 + i < total:
-                out[s0 + i] += v * gain
+                out[s0 + i] += v * g
 
     def tone(f, dur, shape, duty=0.5, decay=None):
         cnt = n(dur)
@@ -196,27 +249,40 @@ def music():
             res.append(s * e)
         return res
 
-    chords = [['C3', 'E4', 'G4'], ['G2', 'D4', 'B3'], ['A2', 'C4', 'E4'], ['F2', 'A3', 'C4']] * 2
-    # Bouncy lead, one symbol per eighth note ('-' = rest, '~' = hold).
-    melody = [
-        'E5 G5 - C6 B5 G5 E5 -', 'D5 - G5 ~ F5 E5 D5 -',
-        'C5 E5 A5 ~ G5 E5 C5 -', 'F5 ~ E5 D5 C5 - A4 -',
-        'E5 G5 - C6 B5 G5 E5 G5', 'D5 - B5 ~ A5 G5 D5 -',
-        'C5 E5 A5 G5 E5 C5 E5 -', 'F5 E5 D5 B4 C5 ~ ~ -',
-    ]
+    def kick(t, g=0.55):
+        add(t, sweep(140, 45, 0.14, decay=0.05, curve=0.4), g)
+
+    def snare(t, g=0.3):
+        add(t, noise(0.12, decay=0.035, smooth=0.2), g)
+
+    def hat(t, g=0.08):
+        add(t, noise(0.03, decay=0.008), g)
+
     for bar in range(bars):
         t0 = bar * 4 * beat
         root, *pad = chords[bar]
-        # Bass: root on the beat, octave bounce on the off-beat.
+        f = freq(root)
+        # Bass.
         for b in range(4):
-            f = freq(root)
-            add(t0 + b * beat, tone(f, eighth * 0.9, 'tri'), 0.5)
-            add(t0 + b * beat + eighth, tone(f * 2, eighth * 0.8, 'tri'), 0.3)
-        # Chord stabs on 2 and 4.
-        for b in (1, 3):
-            for p in pad:
-                add(t0 + b * beat, tone(freq(p), eighth * 0.7, 'pulse', duty=0.25, decay=0.08), 0.08)
-        # Lead.
+            if style == 'base':
+                add(t0 + b * beat, tone(f, eighth * 0.8, 'tri'), 0.5)
+                add(t0 + b * beat + eighth, tone(f, eighth * 0.8, 'tri'), 0.4)
+            elif style == 'sky':
+                if b % 2 == 0:
+                    add(t0 + b * beat, tone(f, beat * 1.8, 'tri'), 0.45)
+            else:
+                add(t0 + b * beat, tone(f, eighth * 0.9, 'tri'), 0.5)
+                add(t0 + b * beat + eighth, tone(f * 2, eighth * 0.8, 'tri'), 0.3)
+        # Chords: stabs on 2 and 4, or a rippling arpeggio.
+        if style in ('city', 'sky'):
+            for k in range(8):
+                p = pad[k % len(pad)]
+                add(t0 + k * eighth, tone(freq(p) * 2, eighth * 1.6, 'tri', decay=0.18), 0.07)
+        else:
+            for b in (1, 3):
+                for p in pad:
+                    add(t0 + b * beat, tone(freq(p), eighth * 0.7, 'pulse', duty=0.25, decay=0.08), 0.08)
+        # Lead, one symbol per eighth note ('-' = rest, '~' = hold).
         steps = melody[bar].split()
         for k, sym in enumerate(steps):
             if sym in ('-', '~'):
@@ -224,20 +290,43 @@ def music():
             hold = 1
             while k + hold < len(steps) and steps[k + hold] == '~':
                 hold += 1
-            add(t0 + k * eighth, tone(freq(sym), eighth * hold * 0.92, 'pulse', duty=0.25), 0.16)
-        # Drums: kick on 1 and 3, snare on 2 and 4, hats on eighths.
+            add(t0 + k * eighth, tone(freq(sym), eighth * hold * 0.92, lead[0], duty=lead[1]), gain)
+        # Drums.
         for b in range(4):
-            if b % 2 == 0:
-                add(t0 + b * beat, sweep(140, 45, 0.14, decay=0.05, curve=0.4), 0.55)
+            t = t0 + b * beat
+            if style == 'city':
+                kick(t)
+                if b % 2 == 1:
+                    snare(t, 0.22)
+                hat(t + eighth, 0.12)
+            elif style == 'sky':
+                if b == 0:
+                    kick(t, 0.35)
+                if b == 2:
+                    add(t, partials([(1800, 1), (2700, 0.5)], 0.08, 0.02), 0.12)
+                hat(t + eighth, 0.05)
+            elif style == 'base':
+                kick(t, 0.6)
+                if b % 2 == 1:
+                    snare(t, 0.36)
+                for h in range(4):
+                    hat(t + h * eighth / 2, 0.06)
             else:
-                add(t0 + b * beat, noise(0.12, decay=0.035, smooth=0.2), 0.3)
-            for h in range(2):
-                add(t0 + b * beat + h * eighth, noise(0.03, decay=0.008), 0.08)
-    write('music.wav', out, 0.7)
+                if b % 2 == 0:
+                    kick(t)
+                else:
+                    snare(t)
+                for h in range(2):
+                    hat(t + h * eighth)
+                if style == 'factory' and b % 2 == 1:
+                    # Anvil clank on the off-beat.
+                    add(t + eighth, partials([(620, 1), (1480, 0.6), (2350, 0.4)], 0.18, 0.05), 0.1)
+    write(name, out, 0.7)
 
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     sfx()
-    music()
+    for name, song in SONGS.items():
+        music(name, **song)
     print('wrote', sorted(os.listdir(OUT)))
