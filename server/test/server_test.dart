@@ -272,6 +272,20 @@ void main() {
     expect(stats['deathCauses'], {'spikes': 1, 'saw': 1});
   });
 
+  test('deleting an account removes the player and all their data', () async {
+    final a = await api.register('Ann'), b = await api.register('Bob');
+    await api.call('POST', '/v1/friends', token: a.token, body: {'code': b.code});
+    await api.call('POST', '/v1/scores', token: a.token, body: {'board': 'endless', 'value': 50});
+    await api.call('PUT', '/v1/save', token: a.token, body: {'data': {'coins': 1}, 'baseRevision': 0});
+    final (_, clip) = await api.call('POST', '/v1/fails', token: a.token, bytes: mp4());
+    expect((await api.call('DELETE', '/v1/me', token: a.token)).$1, 200);
+    expect((await api.call('GET', '/v1/me', token: a.token)).$1, 401);
+    expect((await api.call('GET', '/v1/leaderboards/endless')).$2['entries'], isEmpty);
+    expect((await api.call('GET', '/v1/friends', token: b.token)).$2['friends'], isEmpty);
+    expect((await api.call('GET', '/v1/media/fails/${clip['id']}.mp4')).$1, 404);
+    expect(File('${media.path}/fails/${clip['id']}.mp4').existsSync(), isFalse);
+  });
+
   test('bad JSON is a 400, not a crash', () async {
     final r = await api.handler(Request('POST', Uri.parse('http://localhost/v1/players'), body: '{nope'));
     expect(r.statusCode, 400);

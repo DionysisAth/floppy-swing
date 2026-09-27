@@ -9,10 +9,12 @@ shared as vertical clips.
 |---|---|---|---|---|---|
 | ![](docs/screenshots/1_menu.png) | ![](docs/screenshots/2_levels.png) | ![](docs/screenshots/4_swinging.png) | ![](docs/screenshots/7_replay.png) | ![](docs/screenshots/9_won.png) | ![](docs/screenshots/6_shop.png) |
 
-This covers the design document's MVP plus the next milestones: Worlds 2–5,
-Endless mode, the Daily Challenge, and the economy and cosmetics. What's
-left needs accounts and servers: real-money purchases, online leaderboards,
-cloud save, friend ghosts and Fail of the Week.
+This covers the whole design document except real-money purchases and real
+ad accounts: the MVP, Worlds 2–5, Endless mode, the Daily Challenge, the
+economy and cosmetics, and the online features (leaderboards, cloud save,
+friends and their ghosts, Fail of the Week) backed by the game server in
+`server/`. See `docs/NEXT_STEPS.md` for what's left and `docs/RELEASING.md`
+for getting it into the stores.
 
 ## What's in the game
 
@@ -40,6 +42,7 @@ cloud save, friend ghosts and Fail of the Week.
 - **Daily bonus:** a 7-day login calendar with coins and gems; missing a day restarts it.
 - **Season Pass:** 7-week themed seasons (Pirate Plunder, Robo Rumble, Dino Days, Wizard Weeks) with 20 tiers of XP from finishing levels, dailies, Endless runs and logging in. The free track has coins, gems and an exclusive trail; the premium track (250 gems for now) has more, topped by an exclusive skin.
 - **Ghost:** your best run on each level and daily is saved and replayed as a see-through ghost to race.
+- **Online (with the game server):** anonymous accounts; Daily and Endless leaderboards (everyone or friends) with your rank after each run; automatic cloud save with merge, plus a code to move to a new phone; friends by friend code, whose best runs you race as tinted, named ghosts; Endless challenge codes; **Fail of the Week** (send a clip from the fail screen, watch and vote, weekly winner gets the Golden Flop skin and gems; reporting and moderation); gameplay analytics with a stats endpoint; and "Delete my online data". Without a server the game is fully playable offline.
 - **Level skip:** after 5 attempts at a campaign level you can skip it for gems. It unlocks the next level but earns no stars.
 - **Ads:** rewarded videos to revive at a checkpoint and to double coins. Interstitials only show when leaving a won level, at most every 3 wins and 2 minutes, never before level 8, and never after a fail. A "remove ads" flag is ready for when purchases exist.
 - Menu with an attract-mode demo (the autopilot plays level 1), world and level select, shop, Season Pass, settings (music and SFX volume, mute, vibration, privacy options, reset).
@@ -84,7 +87,8 @@ lib/
     autopilot.dart    Bot player (level verification + menu demo)
     skins.dart        Skin catalogue
     floppy_game.dart  Thin Flame wrapper
-  services/        Progress/save, audio+haptics, ads (UMP consent), clip export, analytics
+  services/        Progress/save, audio+haptics, ads (UMP consent), clip export, analytics,
+                   online_service (game server client), cloud_sync
   ui/              Screens and widgets
 assets/
   config/physics.json   <- tune the feel here
@@ -94,7 +98,15 @@ assets/
   audio/, fonts/
 android/.../VideoEncoderPlugin.kt   MediaCodec MP4 encoder for clips
 ios/Runner/AppDelegate.swift        AVAssetWriter MP4 encoder for clips
+server/            The game server (Dart, shelf + SQLite, Dockerfile) - see server/README.md
+docs/
+  NEXT_STEPS.md      What's left
+  RELEASING.md       Signing, stores, server deploy
+  privacy-policy.md  Draft privacy policy
+  store/             Store listing copy and screenshots
 tool/
+  icon/               Renders the app icon and splash logo from the game
+  screenshots/        Captures and frames store screenshots
   check_levels.dart   Proves every level is beatable (and can auto-place coins)
   gen_levels.dart     Generates levels 16-100 from a seed per level
   death_map.dart      Shows where the bot dies on a level
@@ -106,7 +118,9 @@ tool/
 ```bash
 flutter pub get
 flutter run            # on a connected iPhone/Android device or simulator
-flutter test           # physics, levels, economy, controller and UI tests
+flutter run --dart-define=FLOPPY_SERVER=https://your-server   # with online features
+flutter test           # physics, levels, economy, online client and UI tests
+(cd server && dart test)  # game server API tests (needs libsqlite3)
 flutter analyze
 ```
 
@@ -186,27 +200,16 @@ there.
 
 ## Before releasing
 
-- **Economy:** all prices and rewards (coins, gems, login calendar, ad pacing)
-  are in `assets/config/economy.json`; cosmetic prices are in
-  `lib/game/cosmetics.dart` and Season Pass rewards in `lib/game/season.dart`.
-- **Ads:** the AdMob ids (rewarded and interstitial) are Google's public *test* ids. Replace them in
-  `lib/services/ads_service.dart`, `AndroidManifest.xml` and `ios/Runner/Info.plist`
-  (`GADApplicationIdentifier`). Configure the GDPR and IDFA messages in AdMob's
-  Privacy & messaging, which the app already shows through UMP.
-- **Share text:** set the store link in `ShareText` (`lib/services/clip_exporter.dart`).
-- **Bundle ids:** `com.floppyswing.floppy_swing` on both platforms. Also set up
-  release signing, and replace the app icons (still the Flutter defaults).
-- **Analytics:** `lib/services/analytics.dart` only logs for now. Plug in
-  Firebase or similar there.
+See **`docs/RELEASING.md`**: deploy the game server, replace the AdMob test
+ids, set up signing (CI signs and builds a Play bundle when the upload key
+secrets are set), and fill in the store listing (`docs/store/listing.md`)
+and privacy policy (`docs/privacy-policy.md`).
 
-## Next milestone: online features and purchases
+All prices and rewards (coins, gems, login calendar, ad pacing) are in
+`assets/config/economy.json`; cosmetic prices are in
+`lib/game/cosmetics.dart` and Season Pass rewards in `lib/game/season.dart`.
 
-These need developer accounts or a backend, so they aren't built yet:
+## Not built (by choice)
 
-- **Real-money purchases:** gem packs, the Starter Pack, "Remove ads" (sets
-  `ProgressStore.adsRemoved`) and buying the premium pass with money instead
-  of gems. Needs App Store Connect and Play Console products.
-- **Online leaderboards** for the Daily Challenge and Endless (scores are
-  local now), and **cloud save** (the save is already one JSON blob).
-- **Friend Ghosts** (the ghost format is ready; it needs a way to share runs)
-  and **Fail of the Week**.
+Real-money purchases (gem packs, Starter Pack, "Remove ads", buying the
+premium pass with money) and real ad accounts. See `docs/NEXT_STEPS.md`.

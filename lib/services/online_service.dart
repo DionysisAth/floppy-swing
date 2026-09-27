@@ -242,6 +242,18 @@ class OnlineService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Deletes the online account and everything the server holds about this
+  /// player. The game keeps working offline; a fresh anonymous account is
+  /// made next time it goes online.
+  Future<void> deleteAccount() async {
+    await _authed('DELETE', '/v1/me');
+    _token = null;
+    profile = null;
+    await _prefs?.remove(_tokenKey);
+    status = OnlineStatus.offline;
+    notifyListeners();
+  }
+
   /// A one-time code for moving this account to another device.
   Future<String> transferCode() async => (await _authed('POST', '/v1/me/transfer'))['code'] as String;
 

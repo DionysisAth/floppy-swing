@@ -93,7 +93,7 @@ void main() {
     expect(find.byType(FriendsScreen), findsOneWidget);
     expect(find.text(me.profile!.friendCode), findsOneWidget);
     expect(find.text('No friends yet. Share your code!'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), setup.rival.profile!.friendCode);
+    await tester.enterText(find.byType(TextField).first, setup.rival.profile!.friendCode);
     await tester.tap(find.text('Add'));
     await frames(tester, 30);
     expect(find.text('Rival'), findsOneWidget);

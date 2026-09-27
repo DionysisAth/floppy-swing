@@ -56,7 +56,7 @@ class Store {
     db.execute('PRAGMA foreign_keys=ON');
     db.execute('''
       CREATE TABLE IF NOT EXISTS players(
-        id INTEGER PRIMARY KEY, token TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
         friend_code TEXT UNIQUE NOT NULL, created_at INTEGER NOT NULL, last_seen INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS transfer_codes(
         code TEXT PRIMARY KEY, player_id INTEGER NOT NULL REFERENCES players(id), expires_at INTEGER NOT NULL);
@@ -171,6 +171,39 @@ class Store {
     db.execute('DELETE FROM transfer_codes WHERE code = ?', [code.toUpperCase().trim()]);
     final token = db.select('SELECT token FROM players WHERE id = ?', [id]).first['token'] as String;
     return (player: playerById(id)!, token: token);
+  }
+
+  /// Deletes a player and everything about them. Returns their clip ids so
+  /// the caller can remove the files.
+  List<int> deletePlayer(int playerId) {
+    final clips = [for (final r in db.select('SELECT id FROM fails WHERE player_id = ?', [playerId])) r['id'] as int];
+    db.execute('BEGIN');
+    try {
+      for (final id in clips) {
+        db.execute('DELETE FROM votes WHERE fail_id = ?', [id]);
+        db.execute('DELETE FROM reports WHERE fail_id = ?', [id]);
+      }
+      for (final sql in [
+        'DELETE FROM fails WHERE player_id = ?',
+        'DELETE FROM votes WHERE player_id = ?',
+        'DELETE FROM reports WHERE player_id = ?',
+        'DELETE FROM scores WHERE player_id = ?',
+        'DELETE FROM saves WHERE player_id = ?',
+        'DELETE FROM ghosts WHERE player_id = ?',
+        'DELETE FROM rewards WHERE player_id = ?',
+        'DELETE FROM events WHERE player_id = ?',
+        'DELETE FROM transfer_codes WHERE player_id = ?',
+      ]) {
+        db.execute(sql, [playerId]);
+      }
+      db.execute('DELETE FROM friends WHERE player_id = ? OR friend_id = ?', [playerId, playerId]);
+      db.execute('DELETE FROM players WHERE id = ?', [playerId]);
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+    return clips;
   }
 
   // ----------------------------------------------------------- leaderboards

@@ -46,6 +46,17 @@ void main() {
     expect(() => a.rename('x'), throwsA(isA<OnlineException>()));
   });
 
+  test('deleting the account forgets it; the next start makes a new one', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final a = await srv.player(prefs: prefs);
+    final id = a.profile!.id;
+    await a.deleteAccount();
+    expect(a.profile, isNull);
+    expect(prefs.getString('online_token'), isNull);
+    await a.start();
+    expect(a.profile!.id, isNot(id));
+  });
+
   test('an unreachable server leaves the game offline, then recovers', () async {
     srv.down = true;
     final o = await srv.player();

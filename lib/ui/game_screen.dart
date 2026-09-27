@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../app.dart';
 import '../game/course_builder.dart';
@@ -270,6 +271,17 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  /// Shares this Endless course's code so a friend can play the same one.
+  Future<void> _challenge() async {
+    final r = c.endlessResult;
+    await SharePlus.instance.share(
+      ShareParams(
+        text: 'I swung ${r?.distance ?? 0} m in Floppy Swing Endless. Can you beat me? '
+            'Friends > Challenge code: ${widget.seed}',
+      ),
+    );
+  }
+
   void _openRanks(BoardKind kind) {
     Navigator.of(context).push(popRoute(LeaderboardScreen(initial: kind)));
   }
@@ -438,6 +450,14 @@ class _GameScreenState extends State<GameScreen> {
                       shade: const Color(0xFFA11D2A),
                       fontSize: 18,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                  if (_endless)
+                    RoundButton(
+                      icon: Icons.sports_kabaddi_rounded,
+                      tooltip: 'Challenge a friend',
+                      onPressed: _challenge,
+                      color: AppColors.green,
+                      shade: AppColors.greenDark,
                     ),
                   if (_endless && _online.isOnline)
                     RoundButton(

@@ -87,6 +87,15 @@ Handler buildHandler(
     return json({'player': store.playerById(me.id)!.toJson()});
   }));
 
+  // Account deletion (required by the App Store for apps that make accounts).
+  router.delete('/v1/me', authed((r, me) {
+    for (final id in store.deletePlayer(me.id)) {
+      final f = clipFile(id);
+      if (f.existsSync()) f.deleteSync();
+    }
+    return json({'deleted': true});
+  }));
+
   router.post('/v1/me/transfer', authed((r, me) => json({'code': store.transferCode(me.id, clock()), 'validHours': 24})));
 
   router.post('/v1/transfer', (Request r) async {

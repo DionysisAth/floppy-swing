@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../app.dart';
 import '../services/online_service.dart';
+import 'game_screen.dart';
 import 'online_ui.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -166,6 +167,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
                               ),
                             ),
                             const SizedBox(height: 14),
+                            _ChallengeCard(),
+                            const SizedBox(height: 14),
                             if (_friends == null)
                               const Center(child: CircularProgressIndicator())
                             else if (_friends!.isEmpty)
@@ -207,4 +210,52 @@ class _FriendsScreenState extends State<FriendsScreen> {
       ),
     );
   }
+}
+
+/// Plays the Endless course a friend challenged you on.
+class _ChallengeCard extends StatefulWidget {
+  @override
+  State<_ChallengeCard> createState() => _ChallengeCardState();
+}
+
+class _ChallengeCardState extends State<_ChallengeCard> {
+  final _seed = TextEditingController();
+
+  @override
+  void dispose() {
+    _seed.dispose();
+    super.dispose();
+  }
+
+  void _play() {
+    final seed = int.tryParse(_seed.text.trim());
+    if (seed == null) return;
+    Navigator.of(context).push(popRoute(GameScreen.endless(seed: seed)));
+  }
+
+  @override
+  Widget build(BuildContext context) => Panel(
+    padding: const EdgeInsets.all(14),
+    child: Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _seed,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(hintText: 'Challenge code', border: InputBorder.none),
+            style: display(22, color: AppColors.ink, shadow: false),
+            onSubmitted: (_) => _play(),
+          ),
+        ),
+        ChunkyButton(
+          onPressed: _play,
+          label: 'Play',
+          icon: Icons.all_inclusive_rounded,
+          color: AppColors.blue,
+          shade: AppColors.blueDark,
+          fontSize: 18,
+        ),
+      ],
+    ),
+  );
 }

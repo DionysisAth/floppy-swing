@@ -133,6 +133,7 @@ class SettingsScreen extends StatelessWidget {
               children: [
                 _small('Change name', Icons.edit_rounded, () => _rename(context)),
                 _small('Move to a new phone', Icons.send_to_mobile_rounded, () => _showTransferCode(context)),
+                _small('Delete my online data', Icons.person_remove_rounded, () => _deleteAccount(context)),
               ],
             ),
           ],
@@ -186,6 +187,33 @@ class SettingsScreen extends StatelessWidget {
     final name = await _ask(context, 'Your name', initial: online.profile?.name ?? '', hint: '3-16 letters');
     if (name == null || !context.mounted) return;
     await onlineAction(context, () => online.rename(name));
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    final services = AppServices.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete your online data?'),
+        content: const Text(
+          'This removes your name, scores, friends, ghosts, clips and cloud save from the game server. '
+          'Progress on this phone stays.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final done = await onlineAction(context, () async {
+      await services.online.deleteAccount();
+      services.progress.cloudRevision = 0;
+      return true;
+    });
+    if (done == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Your online data was deleted.')));
+    }
   }
 
   Future<void> _showTransferCode(BuildContext context) async {
