@@ -32,6 +32,14 @@ void main() {
         expect(level.coins.length, lessThan(62), reason: 'coins are stored in a bit mask');
         expect(level.targetTime, greaterThan(0));
         expect(level.finish.x, greaterThan(level.start.x));
+        // The ragdoll settles on the start platform; the first press must
+        // reach an anchor from wherever it lies.
+        final restX = level.start.x - 1.5, restY = level.start.y + 1.2;
+        final startReach = level.anchors.any((a) {
+          final dx = a.x - restX, dy = a.y - restY;
+          return dx * dx + dy * dy < cfg.ropeRange * cfg.ropeRange;
+        });
+        expect(startReach, isTrue, reason: 'first anchor out of reach from the start');
         for (final c in level.checkpoints) {
           final reachable = level.anchors.any(
             (a) => (a.x - c.x).abs() < cfg.ropeRange && (a.y - (c.y - 1)).abs() < cfg.ropeRange,

@@ -19,6 +19,10 @@ class GameScreen extends StatefulWidget {
   const GameScreen({super.key, required this.levelId});
   final int levelId;
 
+  /// The most recently created controller, for widget tests.
+  @visibleForTesting
+  static GameController? debugLastController;
+
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -52,6 +56,7 @@ class _GameScreenState extends State<GameScreen> {
       feedback: _services.audio,
     )..addListener(_onControllerChanged);
     _game = FloppyGame(_controller!);
+    GameScreen.debugLastController = _controller;
     _lastAttempt = c.attempts;
     _services.analytics.levelStart(level.id, c.attempts);
     _services.audio.startMusic();
@@ -220,9 +225,16 @@ class _GameScreenState extends State<GameScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(line, textAlign: TextAlign.center, style: display(34)),
-              const SizedBox(height: 6),
-              _Pulse(child: Text('Tap anywhere to retry', style: display(22, color: AppColors.yellow))),
+              // Text lets taps through: tapping anywhere retries.
+              IgnorePointer(
+                child: Column(
+                  children: [
+                    Text(line, textAlign: TextAlign.center, style: display(34)),
+                    const SizedBox(height: 6),
+                    _Pulse(child: Text('Tap anywhere to retry', style: display(22, color: AppColors.yellow))),
+                  ],
+                ),
+              ),
               const SizedBox(height: 14),
               Wrap(
                 alignment: WrapAlignment.center,
@@ -316,7 +328,7 @@ class _GameScreenState extends State<GameScreen> {
                           Text('+${reward.total * (_doubled ? 2 : 1)}', style: display(34, color: AppColors.yellowDark)),
                           if (reward.newStars > 0) ...[
                             const SizedBox(width: 10),
-                            Text('(${reward.newStars} new ★)', style: body(16, weight: 600)),
+                            Text('(+${reward.newStars} ${reward.newStars == 1 ? 'star' : 'stars'})', style: body(16, weight: 600)),
                           ],
                         ],
                       ),
@@ -463,7 +475,13 @@ class _Hud extends StatefulWidget {
 }
 
 class _HudState extends State<_Hud> with SingleTickerProviderStateMixin {
-  late final Ticker _ticker = createTicker((_) => setState(() {}))..start();
+  late final Ticker _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker((_) => setState(() {}))..start();
+  }
 
   @override
   void dispose() {

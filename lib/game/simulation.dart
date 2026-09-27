@@ -616,6 +616,10 @@ class Simulation {
     startedAt ??= t;
     endedAt = t;
     _detach(boost: false);
+    // Brake hard so the celebration happens at the finish, not off-screen.
+    for (final b in ragdoll.parts) {
+      b.linearVelocity = b.linearVelocity * 0.2;
+    }
     events.add(SimEvent(EventKind.finish, t, p.x, p.y));
   }
 

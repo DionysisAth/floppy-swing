@@ -11,7 +11,7 @@ class PhysicsConfig {
   const PhysicsConfig({
     this.gravity = 22.0,
     this.stepsPerSecond = 60,
-    this.ropeRange = 8.0,
+    this.ropeRange = 9.0,
     this.ropeMinLength = 1.6,
     this.ropeReelFactor = 0.85,
     this.ropeReelSpeed = 5.0,
@@ -42,7 +42,7 @@ class PhysicsConfig {
   factory PhysicsConfig.fromJson(Map<String, dynamic> m) => PhysicsConfig(
     gravity: _d(m, 'gravity', 22.0),
     stepsPerSecond: (m['stepsPerSecond'] as num?)?.toInt() ?? 60,
-    ropeRange: _d(m, 'ropeRange', 8.0),
+    ropeRange: _d(m, 'ropeRange', 9.0),
     ropeMinLength: _d(m, 'ropeMinLength', 1.6),
     ropeReelFactor: _d(m, 'ropeReelFactor', 0.85),
     ropeReelSpeed: _d(m, 'ropeReelSpeed', 5.0),

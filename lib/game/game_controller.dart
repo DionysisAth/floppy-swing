@@ -105,8 +105,11 @@ class GameController extends ChangeNotifier {
   static const replayAfter = 0.35;
   static const flailTime = 0.45;
 
+  /// Metres visible across the screen when moving slowly.
+  static const baseViewWidth = 10.5;
+
   final ListQueue<Frame> history = ListQueue();
-  Cam cam = const Cam(0, 0, 13);
+  Cam cam = const Cam(0, 0, baseViewWidth);
   double _aspect = 2.0;
 
   double wallTime = 0;
@@ -136,7 +139,7 @@ class GameController extends ChangeNotifier {
     _acc = 0;
     history.clear();
     final p = s.ragdoll.torso.position;
-    cam = Cam(p.x + 2, p.y - 2, 13);
+    cam = Cam(p.x + 2, p.y - 2, baseViewWidth);
     history.add(Frame(s.snapshot, cam));
   }
 
@@ -301,11 +304,11 @@ class GameController extends ChangeNotifier {
   void _updateCamera(double dt) {
     final torso = sim.ragdoll.torso.position;
     final v = sim.ragdoll.velocity;
-    final frozen = phase == GamePhase.dying || phase == GamePhase.replay || phase == GamePhase.failed;
+    final frozen = phase != GamePhase.ready && phase != GamePhase.playing;
     final speed = v.length;
     var tx = torso.x + (v.x * 0.3).clamp(-3.0, 3.0) + (frozen ? 0 : 1.5);
     var ty = torso.y + (v.y * 0.15).clamp(-2.5, 2.5) - 1.5;
-    final tw = 13 + ((speed - 6).clamp(0.0, 8.0)) * 0.45;
+    final tw = baseViewWidth + ((speed - 6).clamp(0.0, 8.0)) * 0.5;
     // Keep the pit from filling the screen.
     final halfH = tw * _aspect / 2;
     ty = math.min(ty, level.killY + 3 - halfH);

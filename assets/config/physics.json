@@ -1,7 +1,7 @@
 {
   "gravity": 20.0,
   "stepsPerSecond": 60,
-  "ropeRange": 8.0,
+  "ropeRange": 9.0,
   "ropeMinLength": 1.6,
   "ropeReelFactor": 0.85,
   "ropeReelSpeed": 5.0,

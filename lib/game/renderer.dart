@@ -180,7 +180,10 @@ class WorldRenderer {
     canvas.drawCircle(c, r, _fill);
     canvas.drawCircle(c + Offset(r * 0.9, r * 0.2), r * 0.8, _fill);
     canvas.drawCircle(c + Offset(-r * 0.9, r * 0.25), r * 0.7, _fill);
-    canvas.drawRect(Rect.fromLTRB(c.dx - r * 1.5, c.dy, c.dx + r * 1.6, c.dy + r * 0.9), _fill);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTRB(c.dx - r * 1.55, c.dy - r * 0.2, c.dx + r * 1.65, c.dy + r * 0.8), Radius.circular(r * 0.5)),
+      _fill,
+    );
   }
 
   void _hills(
