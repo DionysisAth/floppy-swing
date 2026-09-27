@@ -1,0 +1,77 @@
+{
+  "1": {
+    "releaseAngle": 0.5,
+    "regrabDelay": 0.15,
+    "minFallSpeed": -6.0
+  },
+  "4": {
+    "releaseAngle": 0.7,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 1.0
+  },
+  "5": {
+    "releaseAngle": 0.5,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 1.0
+  },
+  "7": {
+    "releaseAngle": 0.5,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 1.0
+  },
+  "8": {
+    "releaseAngle": 0.5,
+    "regrabDelay": 0.15,
+    "minFallSpeed": -6.0
+  },
+  "9": {
+    "releaseAngle": 0.5,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 4.0
+  },
+  "12": {
+    "releaseAngle": 0.9,
+    "regrabDelay": 0.05,
+    "minFallSpeed": -6.0
+  },
+  "13": {
+    "releaseAngle": 0.7,
+    "regrabDelay": 0.15,
+    "minFallSpeed": -6.0
+  },
+  "15": {
+    "releaseAngle": 0.7,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 4.0
+  },
+  "3": {
+    "releaseAngle": 0.5,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 1.0
+  },
+  "2": {
+    "releaseAngle": 0.7,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 4.0
+  },
+  "6": {
+    "releaseAngle": 0.5,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 4.0
+  },
+  "10": {
+    "releaseAngle": 0.7,
+    "regrabDelay": 0.35,
+    "minFallSpeed": 1.0
+  },
+  "11": {
+    "releaseAngle": 0.7,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 1.0
+  },
+  "14": {
+    "releaseAngle": 0.2,
+    "regrabDelay": 0.15,
+    "minFallSpeed": 4.0
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "coinValue": 2,
+  "starReward": 15,
+  "levelCompleteReward": 10,
+  "reviveCost": 60,
+  "skinPrices": {
+    "banana": 150,
+    "knight": 300,
+    "astronaut": 450,
+    "chicken": 600,
+    "ninja": 800
+  }
+}

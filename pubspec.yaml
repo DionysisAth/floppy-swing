@@ -1,0 +1,40 @@
+name: floppy_swing
+description: "Floppy Swing - a one-thumb ragdoll grappling-rope physics game for iOS and Android."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flame: ^1.38.2
+  # Pure-Dart Box2D port, vendored with a revolute-joint fix. See
+  # third_party/forge2d/PATCHES.md.
+  forge2d:
+    path: third_party/forge2d
+  flame_audio: ^2.12.2
+  shared_preferences: ^2.5.5
+  share_plus: ^13.3.0
+  google_mobile_ads: ^9.1.0
+  path_provider: ^2.1.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/config/
+    - assets/levels/
+    - assets/audio/
+  fonts:
+    - family: LilitaOne
+      fonts:
+        - asset: assets/fonts/LilitaOne-Regular.ttf
+    - family: Fredoka
+      fonts:
+        - asset: assets/fonts/Fredoka.ttf
