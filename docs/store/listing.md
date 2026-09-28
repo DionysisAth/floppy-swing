@@ -20,7 +20,7 @@ One-thumb ragdoll swinging. Hold to grab, let go to fly, laugh at every fail.
 
 ## Promotional text (App Store, 170 characters)
 
-New: Fail of the Week! Send your most spectacular crash, vote for your favourites, and win the Golden Flop skin.
+New: leaderboards and achievements! Race the world in the Daily Challenge, collect all 300 stars for the Golden Flop skin.
 
 ## Description
 
@@ -40,9 +40,11 @@ replayed in glorious slow motion.
   tap, ready for TikTok, Reels and Shorts.
 - **Endless mode** - one course that never ends. How far can you go?
 - **Daily Challenge** - a new level every day, with leaderboards and streaks.
-- **Race your friends' ghosts** and climb the friend leaderboards.
-- **Fail of the Week** - send your best fail, vote for others, win exclusive
-  rewards.
+- **Race your own ghost**, climb the Google Play Games / Game Center
+  leaderboards and unlock achievements. Your progress is backed up to the
+  cloud.
+- **Challenge a friend** - send your Endless course code and see who swings
+  further.
 - **Look fabulous** - skins, rope styles, trails, fail effects and victory
   dances. Everything is cosmetic: no pay-to-win.
 - **Season Pass** - themed seasons with free and premium reward tracks.
@@ -59,16 +61,15 @@ Games > Arcade (secondary: Games > Casual)
 
 ## Age rating
 
-- Apple: 9+ (Infrequent/Mild Cartoon or Fantasy Violence). User-generated
-  content: players upload gameplay clips (no free text beyond an 80-character
-  caption); there is reporting and moderation.
-- Google (IARC questionnaire): cartoon violence, no blood; users can share
-  content (clips) - moderated with reporting.
+- Apple: 9+ (Infrequent/Mild Cartoon or Fantasy Violence). No user-generated
+  content inside the game (clips are shared through the system share sheet).
+- Google (IARC questionnaire): cartoon violence, no blood; no user
+  interaction inside the game beyond Play Games leaderboards.
 
 ## What's new (first release)
 
 Hello, world! Swing through 100 levels, the Daily Challenge and Endless mode,
-race your friends' ghosts and send in your best fail.
+then climb the leaderboards and hunt achievements.
 
 ## Contact and URLs to fill in
 

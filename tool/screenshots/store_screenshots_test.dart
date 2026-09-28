@@ -14,8 +14,7 @@ import 'package:floppy_swing/game/skins.dart';
 import 'package:floppy_swing/services/ads_service.dart';
 import 'package:floppy_swing/services/analytics.dart';
 import 'package:floppy_swing/services/audio_service.dart';
-import 'package:floppy_swing/services/cloud_sync.dart';
-import 'package:floppy_swing/services/online_service.dart';
+import 'package:floppy_swing/services/games_service.dart';
 import 'package:floppy_swing/services/progress.dart';
 import 'package:floppy_swing/ui/game_screen.dart';
 import 'package:floppy_swing/ui/level_select_screen.dart';
@@ -66,7 +65,6 @@ void main() {
       progress.grantItem(id);
       progress.equip(cosmeticById(id));
     }
-    final online = OnlineService.disabled();
     await tester.pumpWidget(FloppySwingApp(
       services: (child) => AppServices(
         physics: content!.physics,
@@ -77,8 +75,7 @@ void main() {
         audio: AudioService(progress),
         ads: NoAdsService(),
         analytics: const Analytics(),
-        online: online,
-        cloud: CloudSync(progress, online),
+        games: GamesService.disabled(progress),
         child: child,
       ),
     ));

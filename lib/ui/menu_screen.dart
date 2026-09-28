@@ -9,11 +9,8 @@ import '../game/floppy_game.dart';
 import '../game/game_controller.dart';
 import '../game/season.dart';
 import '../game/skins.dart';
-import '../services/online_service.dart';
+import '../services/games_service.dart';
 import 'game_screen.dart';
-import 'fails_screen.dart';
-import 'friends_screen.dart';
-import 'leaderboard_screen.dart';
 import 'level_select_screen.dart';
 import 'login_reward_dialog.dart';
 import 'season_screen.dart';
@@ -44,56 +41,35 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
     if (_demo != null) return;
     final services = AppServices.of(context);
     // Attract mode: the autopilot plays level 1 behind the menu, silently.
-    _demo = GameController(
-      level: services.levels.first,
-      cfg: services.physics,
-      skin: skinById(services.progress.selectedSkin),
-      look: services.progress.loadout,
-    )
-      ..autopilot = Autopilot(const AutopilotParams(releaseAngle: 0.35, regrabDelay: 0.15, minFallSpeed: -2))
-      ..addListener(_onDemo);
+    _demo =
+        GameController(
+            level: services.levels.first,
+            cfg: services.physics,
+            skin: skinById(services.progress.selectedSkin),
+            look: services.progress.loadout,
+          )
+          ..autopilot = Autopilot(const AutopilotParams(releaseAngle: 0.35, regrabDelay: 0.15, minFallSpeed: -2))
+          ..addListener(_onDemo);
     _game = FloppyGame(_demo!, dim: 0.2);
     services.audio.startMusic();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      await showLoginReward(context);
-      _checkRewards();
+      if (mounted) await showLoginReward(context);
     });
-    _online = services.online..addListener(_checkRewards);
   }
 
-  OnlineService? _online;
-
-  bool _rewardsChecked = false;
-
-  /// Server rewards (e.g. winning Fail of the Week), once per launch.
-  Future<void> _checkRewards() async {
-    final services = AppServices.of(context);
-    if (_rewardsChecked || !services.online.isOnline) return;
-    _rewardsChecked = true;
-    try {
-      final rewards = await services.cloud.collectRewards();
-      if (!mounted || rewards.isEmpty) return;
-      services.audio.play('win.wav');
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(
-            rewards.any((r) => r.reason.startsWith('fail-of-week')) ? 'Your fail won Fail of the Week!' : 'A gift for you!',
-          ),
-          content: Text([
-            for (final r in rewards) ...[
-              if (r.gems > 0) '${r.gems} gems',
-              if (r.coins > 0) '${r.coins} coins',
-              if (r.item == 'golden') 'the Golden Flop skin' else if (r.item != null) r.item!,
-            ],
-          ].join(', ')),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Yay!'))],
-        ),
-      );
-    } catch (e) {
-      debugPrint('Rewards: $e');
+  /// Leaderboards and achievements live in the Play Games / Game Center UI.
+  Future<void> _openGames(Future<bool> Function(GamesService games) open) async {
+    final games = AppServices.of(context).games;
+    final messenger = ScaffoldMessenger.of(context);
+    if (!await open(games)) {
+      messenger.showSnackBar(SnackBar(content: Text("Couldn't sign in to ${games.serviceName}.")));
     }
+  }
+
+  /// Plays the Endless course a friend shared ("challenge code").
+  Future<void> _enterChallenge() async {
+    final seed = await showDialog<int>(context: context, builder: (_) => const ChallengeCodeDialog());
+    if (seed != null && mounted) await _open(GameScreen.endless(seed: seed));
   }
 
   Widget _social(IconData icon, String tooltip, Color color, Color shade, VoidCallback onPressed) =>
@@ -114,7 +90,6 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
-    _online?.removeListener(_checkRewards);
     _wobble.dispose();
     _demo?.dispose();
     super.dispose();
@@ -135,7 +110,9 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: IgnorePointer(child: GameWidget(game: _game!))),
+          Positioned.fill(
+            child: IgnorePointer(child: GameWidget(game: _game!)),
+          ),
           ContentArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -173,14 +150,31 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        _social(Icons.emoji_events_rounded, 'Leaderboards', AppColors.orange, AppColors.orangeDark,
-                            () => _open(const LeaderboardScreen())),
-                        const SizedBox(width: 8),
-                        _social(Icons.people_alt_rounded, 'Friends', AppColors.green, AppColors.greenDark,
-                            () => _open(const FriendsScreen())),
-                        const SizedBox(width: 8),
-                        _social(Icons.videocam_rounded, 'Fail of the Week', const Color(0xFFE63946),
-                            const Color(0xFFA11D2A), () => _open(const FailsScreen())),
+                        if (services.games.available) ...[
+                          _social(
+                            Icons.emoji_events_rounded,
+                            'Leaderboards',
+                            AppColors.orange,
+                            AppColors.orangeDark,
+                            () => _openGames((g) => g.showLeaderboard()),
+                          ),
+                          const SizedBox(width: 8),
+                          _social(
+                            Icons.military_tech_rounded,
+                            'Achievements',
+                            AppColors.blue,
+                            AppColors.blueDark,
+                            () => _openGames((g) => g.showAchievements()),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        _social(
+                          Icons.sports_kabaddi_rounded,
+                          'Challenge code',
+                          AppColors.green,
+                          AppColors.greenDark,
+                          _enterChallenge,
+                        ),
                       ],
                     ),
                     const Spacer(flex: 2),
@@ -222,7 +216,8 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                         const SizedBox(width: 10),
                         Expanded(
                           child: _ModeButton(
-                            onPressed: () => _open(GameScreen.endless(seed: DateTime.now().microsecondsSinceEpoch & 0x7fffffff)),
+                            onPressed: () =>
+                                _open(GameScreen.endless(seed: DateTime.now().microsecondsSinceEpoch & 0x7fffffff)),
                             icon: Icons.all_inclusive_rounded,
                             label: 'ENDLESS',
                             sub: services.progress.endlessBestDistance > 0
@@ -334,7 +329,9 @@ class _ModeButton extends StatelessWidget {
                 ],
               ),
             ),
-            FittedBox(child: Text(sub, style: body(14, weight: 700, color: Colors.white))),
+            FittedBox(
+              child: Text(sub, style: body(14, weight: 700, color: Colors.white)),
+            ),
           ],
         ),
       ),
@@ -377,5 +374,45 @@ class _StarsBadge extends StatelessWidget {
         Text('$stars/$max', style: display(20, color: AppColors.ink, shadow: false)),
       ],
     ),
+  );
+}
+
+/// Asks for an Endless challenge code (the course seed a friend shared).
+class ChallengeCodeDialog extends StatefulWidget {
+  const ChallengeCodeDialog({super.key});
+
+  @override
+  State<ChallengeCodeDialog> createState() => _ChallengeCodeDialogState();
+}
+
+class _ChallengeCodeDialogState extends State<ChallengeCodeDialog> {
+  final _code = TextEditingController();
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  void _play() {
+    final seed = int.tryParse(_code.text.trim());
+    if (seed != null) Navigator.pop(context, seed);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Challenge code'),
+    content: TextField(
+      controller: _code,
+      autofocus: true,
+      keyboardType: TextInputType.number,
+      decoration: const InputDecoration(hintText: 'Code from a friend'),
+      style: display(24, color: AppColors.ink, shadow: false),
+      onSubmitted: (_) => _play(),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      TextButton(onPressed: _play, child: const Text('Play Endless')),
+    ],
   );
 }

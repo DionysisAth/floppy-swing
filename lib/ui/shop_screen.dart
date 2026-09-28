@@ -10,6 +10,7 @@ import '../game/ragdoll.dart';
 import '../game/renderer.dart';
 import '../game/simulation.dart';
 import '../game/skins.dart';
+import '../services/progress.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -43,7 +44,9 @@ class ShopScreen extends StatelessWidget {
                         size: 22,
                       ),
                       const SizedBox(width: 12),
-                      Expanded(child: Text('SHOP', style: display(36, color: AppColors.pink))),
+                      Expanded(
+                        child: Text('SHOP', style: display(36, color: AppColors.pink)),
+                      ),
                       FittedBox(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -79,9 +82,7 @@ class ShopScreen extends StatelessWidget {
                     children: [
                       _grid([for (final skin in skins) _skinCard(context, skin)]),
                       for (final kind in CosmeticKind.values)
-                        _grid([
-                          for (final c in cosmetics.where((c) => c.kind == kind)) _itemCard(context, c),
-                        ]),
+                        _grid([for (final c in cosmetics.where((c) => c.kind == kind)) _itemCard(context, c)]),
                       _collections(context),
                     ],
                   ),
@@ -115,8 +116,19 @@ class ShopScreen extends StatelessWidget {
     child: Column(
       children: [
         Expanded(child: preview),
-        FittedBox(child: Text(name, textAlign: TextAlign.center, style: display(20, color: AppColors.ink, shadow: false))),
-        Text(tagline, textAlign: TextAlign.center, maxLines: 2, style: body(12, color: AppColors.greyDark)),
+        FittedBox(
+          child: Text(
+            name,
+            textAlign: TextAlign.center,
+            style: display(20, color: AppColors.ink, shadow: false),
+          ),
+        ),
+        Text(
+          tagline,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          style: body(12, color: AppColors.greyDark),
+        ),
         const SizedBox(height: 8),
         action,
       ],
@@ -138,6 +150,12 @@ class ShopScreen extends StatelessWidget {
           ? Text('EQUIPPED', style: display(18, color: AppColors.greenDark, shadow: false))
           : owned
           ? _wear(() => progress.selectSkin(skin))
+          : skin.id == 'golden'
+          ? _SeasonOnly(
+              icon: Icons.star_rounded,
+              label: '${progress.totalStars}/${ProgressStore.goldenStars}',
+              color: AppColors.yellowDark,
+            )
           : skin.exclusive
           ? const _SeasonOnly()
           : _PriceButton(
@@ -195,8 +213,7 @@ class ShopScreen extends StatelessWidget {
   Widget _collections(BuildContext context) {
     final services = AppServices.of(context);
     final progress = services.progress;
-    String nameOf(String id) =>
-        skins.any((s) => s.id == id) ? skinById(id).name : cosmeticById(id).name;
+    String nameOf(String id) => skins.any((s) => s.id == id) ? skinById(id).name : cosmeticById(id).name;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
@@ -293,16 +310,25 @@ class _PriceButton extends StatelessWidget {
   );
 }
 
+/// How to get an item that can't be bought (Season Pass by default).
 class _SeasonOnly extends StatelessWidget {
-  const _SeasonOnly();
+  const _SeasonOnly({
+    this.icon = Icons.workspace_premium_rounded,
+    this.label = 'Season Pass',
+    this.color = const Color(0xFF8F6BC7),
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) => Row(
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
-      const Icon(Icons.workspace_premium_rounded, color: Color(0xFF8F6BC7), size: 20),
+      Icon(icon, color: color, size: 20),
       const SizedBox(width: 4),
-      Text('Season Pass', style: display(16, color: const Color(0xFF8F6BC7), shadow: false)),
+      Text(label, style: display(16, color: color, shadow: false)),
     ],
   );
 }
@@ -336,8 +362,7 @@ class CosmeticPreview extends StatefulWidget {
 }
 
 class _CosmeticPreviewState extends State<CosmeticPreview> with SingleTickerProviderStateMixin {
-  late final AnimationController _a = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-    ..repeat();
+  late final AnimationController _a = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
 
   @override
   void dispose() {
@@ -361,7 +386,10 @@ class _CosmeticPreviewState extends State<CosmeticPreview> with SingleTickerProv
           return Center(
             child: Transform.translate(
               offset: Offset(0, -hop * 18),
-              child: Transform.rotate(angle: turn, child: Icon(icon, size: 64, color: AppColors.orange)),
+              child: Transform.rotate(
+                angle: turn,
+                child: Icon(icon, size: 64, color: AppColors.orange),
+              ),
             ),
           );
         },
@@ -369,10 +397,7 @@ class _CosmeticPreviewState extends State<CosmeticPreview> with SingleTickerProv
     }
     return AnimatedBuilder(
       animation: _a,
-      builder: (_, _) => CustomPaint(
-        painter: _CosmeticPainter(widget.item, _a.value * 3),
-        size: Size.infinite,
-      ),
+      builder: (_, _) => CustomPaint(painter: _CosmeticPainter(widget.item, _a.value * 3), size: Size.infinite),
     );
   }
 }
@@ -442,8 +467,7 @@ class SkinPreview extends StatefulWidget {
 }
 
 class _SkinPreviewState extends State<SkinPreview> with SingleTickerProviderStateMixin {
-  late final AnimationController _a = AnimationController(vsync: this, duration: const Duration(seconds: 2))
-    ..repeat();
+  late final AnimationController _a = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
 
   @override
   void dispose() {
@@ -454,10 +478,7 @@ class _SkinPreviewState extends State<SkinPreview> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _a,
-    builder: (_, _) => CustomPaint(
-      painter: _SkinPainter(widget.skin, _a.value * math.pi * 2),
-      size: Size.infinite,
-    ),
+    builder: (_, _) => CustomPaint(painter: _SkinPainter(widget.skin, _a.value * math.pi * 2), size: Size.infinite),
   );
 }
 

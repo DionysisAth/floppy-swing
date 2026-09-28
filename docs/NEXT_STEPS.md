@@ -18,11 +18,13 @@ productive in this repo quickly.
 - **Economy and cosmetics:** gems, login calendar, level skip, gem revives,
   shop (ropes, trails, fail effects, dances, collections), Season Pass,
   best-run ghost, paced interstitials.
-- **Online (game server in `server/`):** accounts, Daily/Endless leaderboards
-  (everyone/friends), cloud save with merge and device transfer, friends,
-  friend ghosts, Endless challenge codes, Fail of the Week (upload, vote,
-  report, weekly winner + Golden Flop reward, moderation), analytics with an
-  admin stats endpoint, account deletion.
+- **Online, with no server of our own:** Google Play Games / Game Center
+  sign-in, Daily and Endless leaderboards (native UI, including friends),
+  12 achievements, cloud save via Saved Games with merge
+  (`lib/services/games_service.dart`, `docs/GAMES_SERVICES.md`). Endless
+  challenge codes. Golden Flop skin for all 300 stars. (An earlier custom
+  game server with friends, friend ghosts and Fail of the Week was removed
+  at the owner's request: nothing here needs a VPS.)
 - **Launch prep:** app icon and splash, Android release signing via
   `key.properties` or CI secrets (plus an `.aab`), tablet layouts, store
   listing draft, privacy policy draft, store screenshots, release guide.
@@ -35,16 +37,17 @@ productive in this repo quickly.
    "Remove ads" (the flag `ProgressStore.adsRemoved` already switches off
    interstitials), premium Season Pass for money (it's 250 gems now,
    `Season.premiumGems`), restore purchases. Use the `in_app_purchase`
-   plugin with a `PurchaseService` next to `ads_service.dart`; for
-   server-side receipt checks add an endpoint to `server/`.
+   plugin with a `PurchaseService` next to `ads_service.dart` (on-device
+   receipt checks; there is no server).
 2. **Real ads:** replace AdMob test ids (see `docs/RELEASING.md`), and add
    mediation networks in AdMob.
 
 ### Needs the owner's accounts (not code)
 
-- **Deploy the game server** (`server/README.md`) and set the GitHub repository
-  variable `FLOPPY_SERVER_URL`. Until then, builds show online features as
-  off (Settings > Online also lets testers enter a server address).
+- **Play Games / Game Center setup** (`docs/GAMES_SERVICES.md`): create the
+  leaderboards and achievements in the consoles, paste the ids into
+  `lib/services/games_ids.dart` and `res/values/games-ids.xml`, set
+  `enabled: true`. Until then the buttons are hidden.
 - **Store submissions:**
   - Play Console / App Store Connect apps and TestFlight;
   - upload key secrets;
@@ -52,8 +55,9 @@ productive in this repo quickly.
   - Data safety / App Privacy forms.
 - **Real-device testing:** the 60 FPS target on mid-range phones, the "fun for
   10 minutes" test, and real players' level times (the bot finishes levels in
-  3–27 s; the doc wants 20–60 s for people). Use `/v1/admin/stats` after a
-  soft launch to find levels that are too hard or too quick.
+  3–27 s; the doc wants 20–60 s for people). Plug a free analytics SDK
+  (e.g. Firebase Analytics) into `Analytics.sink` to see level completion
+  rates after a soft launch.
 
 ### Possible improvements
 
@@ -62,28 +66,23 @@ productive in this repo quickly.
   simulation loops over every element each step. A proper fix is a spatial
   window in `Simulation` (only process elements near the player), then
   streaming more segments in.
-- **Server-driven seasons and events** (new Season Pass themes without an app
-  update): the calendar is fixed in `lib/game/season.dart` today.
-- **Push notifications** (daily reminder, "your fail won").
-- **Rate limiting / abuse protection** on the server before a large launch
-  (see `server/README.md`).
-- **Deep links** for challenge codes and friend codes (they're typed in today).
+- **Remote seasons and events** (new Season Pass themes without an app
+  update): the calendar is fixed in `lib/game/season.dart` today. Firebase
+  Remote Config (free) could drive it.
+- **Local notifications** (daily challenge reminder), no server needed.
+- **Deep links** for challenge codes (they're typed in today).
 
 ## How to pick up in a new session
 
 - **Read first:** `README.md`, this file, `docs/RELEASING.md`,
-  `server/README.md`.
+  `docs/GAMES_SERVICES.md`.
 - **Flutter:** 3.47.5. In the cloud container it is at `/opt/sdk/flutter`
   (`export PATH=/opt/sdk/flutter/bin:$PATH`).
 - **Checks before every push:**
   - `flutter analyze` (clean);
-  - `flutter test` (about 395 tests, ~20 s). Includes every level's bot replay
-    and client tests that run the real server code in-process, so it needs
-    libsqlite3;
-  - `(cd server && dart analyze && dart test)`.
+  - `flutter test` (~20 s). Includes every level's bot replay.
 - **Builds run in GitHub Actions** (`.github/workflows/build.yml`; the
   container can't download the Android SDK):
-  - server tests;
   - Android build + tests;
   - emulator smoke test;
   - unsigned iOS build;

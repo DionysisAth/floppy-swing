@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flame/game.dart';
@@ -16,9 +15,8 @@ import '../game/simulation.dart';
 import '../game/skins.dart';
 import '../game/worlds.dart';
 import '../services/clip_exporter.dart';
-import '../services/online_service.dart';
+import '../services/games_service.dart';
 import '../services/progress.dart';
-import 'leaderboard_screen.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -56,10 +54,7 @@ class _GameScreenState extends State<GameScreen> {
   ModeReward? _modeReward;
 
   /// Leaderboard placing after a daily clear or endless run.
-  ({int rank, int total})? _rank;
-
-  /// This fail was already sent to Fail of the Week.
-  bool _failSent = false;
+  int? _rank;
   int _lastZone = 1;
   bool _doubled = false;
   bool _exporting = false;
@@ -89,7 +84,6 @@ class _GameScreenState extends State<GameScreen> {
     _markBest();
     if (_ghostKey != null) {
       c.renderer.ghost = _services.progress.ghostFor(_ghostKey!);
-      unawaited(_loadFriendGhosts(_ghostKey!));
     }
     if (widget.mode != PlayMode.campaign) _services.analytics.modeStart(widget.mode.name);
     _game = FloppyGame(_controller!);
@@ -108,26 +102,11 @@ class _GameScreenState extends State<GameScreen> {
 
   bool get _endless => widget.mode == PlayMode.endless;
 
-  OnlineService get _online => _services.online;
+  GamesService get _games => _services.games;
 
-  /// Friends' best runs on this level, raced as tinted ghosts.
-  Future<void> _loadFriendGhosts(String key) async {
-    if (!_online.isOnline) return;
-    try {
-      final ghosts = await _online.friendGhosts(key);
-      if (!mounted) return;
-      c.renderer.friendGhosts = [for (final g in ghosts) (name: g.name, samples: g.samples)];
-    } catch (_) {
-      // Ghosts are a bonus; never bother the player about them.
-    }
-  }
-
-  Future<void> _submitScore(String board, double value) async {
-    if (!_online.isOnline) return;
-    try {
-      final rank = await _online.submitScore(board, value);
-      if (mounted) setState(() => _rank = rank);
-    } catch (_) {}
+  Future<void> _submitScore(Future<int?> Function() submit) async {
+    final rank = await submit();
+    if (mounted && rank != null) setState(() => _rank = rank);
   }
 
   String? get _ghostKey => switch (widget.mode) {
@@ -161,13 +140,12 @@ class _GameScreenState extends State<GameScreen> {
           _modeReward = _services.progress.recordEndless(er);
           _markBest();
           _services.analytics.endlessRun(er.distance, er.score);
-          unawaited(_submitScore(OnlineService.endlessBoard, er.score.toDouble()));
+          unawaited(_submitScore(() => _games.submitEndless(er.score)));
         }
       }
       if (phase == GamePhase.ready) {
         _modeReward = null;
         _rank = null;
-        _failSent = false;
       }
       if (phase == GamePhase.won && c.result != null) {
         final r = c.result!;
@@ -178,13 +156,12 @@ class _GameScreenState extends State<GameScreen> {
         if (key != null && !r.revived && (prevBest == null || r.time < prevBest)) {
           final ghost = c.recordedGhost;
           _services.progress.saveGhost(key, ghost);
-          if (_online.isOnline) unawaited(_online.uploadGhost(key, r.time, ghost).catchError((Object _) {}));
           c.renderer.ghost = ghost;
         }
         if (_daily) {
           _modeReward = _services.progress.recordDaily(widget.day, r);
           _services.analytics.dailyComplete(widget.day, r.time);
-          unawaited(_submitScore(OnlineService.dailyBoard(widget.day), r.time));
+          unawaited(_submitScore(() => _games.submitDaily(r.time)));
         } else {
           _reward = _services.progress.recordWin(c.level.id, r);
         }
@@ -233,58 +210,19 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  /// Exports this fail as a clip and enters it into Fail of the Week.
-  Future<void> _sendFail() async {
-    if (_exporting || _failSent) return;
-    setState(() {
-      _exporting = true;
-      _exportProgress = 0;
-    });
-    c.setPaused(true);
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final caption = _failLine();
-      final path = await ClipExporter().exportClip(
-        c,
-        caption: caption,
-        onProgress: (p) {
-          if (mounted) setState(() => _exportProgress = p);
-        },
-      );
-      if (path == null) {
-        messenger.showSnackBar(const SnackBar(content: Text("This phone can't make video clips.")));
-        return;
-      }
-      await _online.submitFail(await File(path).readAsBytes(), caption);
-      _services.analytics.failSubmitted();
-      if (mounted) setState(() => _failSent = true);
-      messenger.showSnackBar(const SnackBar(content: Text('Sent! Voting is open in Fail of the Week.')));
-    } on OnlineException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not make the clip: $e')));
-    } finally {
-      if (mounted) {
-        setState(() => _exporting = false);
-        c.setPaused(false);
-      }
-    }
-  }
-
   /// Shares this Endless course's code so a friend can play the same one.
   Future<void> _challenge() async {
     final r = c.endlessResult;
     await SharePlus.instance.share(
       ShareParams(
-        text: 'I swung ${r?.distance ?? 0} m in Floppy Swing Endless. Can you beat me? '
-            'Friends > Challenge code: ${widget.seed}',
+        text:
+            'I swung ${r?.distance ?? 0} m in Floppy Swing Endless. Can you beat me? '
+            'Tap "Challenge code" in the menu and enter ${widget.seed}',
       ),
     );
   }
 
-  void _openRanks(BoardKind kind) {
-    Navigator.of(context).push(popRoute(LeaderboardScreen(initial: kind)));
-  }
+  void _openRanks(Board board) => unawaited(_games.showLeaderboard(board));
 
   Future<void> _reviveWithAd() async {
     c.setPaused(true);
@@ -419,7 +357,9 @@ class _GameScreenState extends State<GameScreen> {
                     if (c.endlessResult != null) _endlessCard(c.endlessResult!),
                     Text(line, textAlign: TextAlign.center, style: display(34)),
                     const SizedBox(height: 6),
-                    _Pulse(child: Text('Tap anywhere to retry', style: display(22, color: AppColors.yellow))),
+                    _Pulse(
+                      child: Text('Tap anywhere to retry', style: display(22, color: AppColors.yellow)),
+                    ),
                   ],
                 ),
               ),
@@ -441,16 +381,6 @@ class _GameScreenState extends State<GameScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     ),
                   ),
-                  if (_online.isOnline && !_failSent)
-                    ChunkyButton(
-                      onPressed: _sendFail,
-                      icon: Icons.videocam_rounded,
-                      label: 'Send to Fail of the Week',
-                      color: const Color(0xFFE63946),
-                      shade: const Color(0xFFA11D2A),
-                      fontSize: 18,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
                   if (_endless)
                     RoundButton(
                       icon: Icons.sports_kabaddi_rounded,
@@ -459,11 +389,11 @@ class _GameScreenState extends State<GameScreen> {
                       color: AppColors.green,
                       shade: AppColors.greenDark,
                     ),
-                  if (_endless && _online.isOnline)
+                  if (_endless && _games.available)
                     RoundButton(
                       icon: Icons.emoji_events_rounded,
                       tooltip: 'Leaderboard',
-                      onPressed: () => _openRanks(BoardKind.endless),
+                      onPressed: () => _openRanks(Board.endless),
                       color: AppColors.orange,
                       shade: AppColors.orangeDark,
                     ),
@@ -543,15 +473,10 @@ class _GameScreenState extends State<GameScreen> {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
         child: Column(
           children: [
-            if (_rank case final rank?)
-              Text('#${rank.rank} of ${rank.total} worldwide', style: body(15, weight: 800, color: AppColors.blue)),
-            if (reward?.newBest ?? false)
-              Text('NEW BEST!', style: display(22, color: AppColors.pink, shadow: false)),
+            if (_rank case final rank?) Text('#$rank worldwide', style: body(15, weight: 800, color: AppColors.blue)),
+            if (reward?.newBest ?? false) Text('NEW BEST!', style: display(22, color: AppColors.pink, shadow: false)),
             Text('${r.distance} m', style: display(48, color: AppColors.orange)),
-            Text(
-              'Score ${r.score}  ·  Best ${_services.progress.endlessBest}',
-              style: body(17, weight: 700),
-            ),
+            Text('Score ${r.score}  ·  Best ${_services.progress.endlessBest}', style: body(17, weight: 700)),
             if (reward != null && reward.coins > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -590,11 +515,8 @@ class _GameScreenState extends State<GameScreen> {
         if (reward.newBest) Text('New best time today!', style: body(16, weight: 700)),
         if (_rank case final rank?)
           GestureDetector(
-            onTap: () => _openRanks(BoardKind.daily),
-            child: Text(
-              '#${rank.rank} of ${rank.total} today  ›',
-              style: body(16, weight: 800, color: AppColors.blue),
-            ),
+            onTap: () => _openRanks(Board.daily),
+            child: Text('#$rank today  ›', style: body(16, weight: 800, color: AppColors.blue)),
           ),
         if (streak > 0)
           Padding(
@@ -611,7 +533,9 @@ class _GameScreenState extends State<GameScreen> {
   Widget _winPanel() {
     final r = c.result!;
     final reward = _reward;
-    final best = _daily ? _services.progress.dailyRecord(widget.day).bestTime : _services.progress.record(c.level.id).bestTime;
+    final best = _daily
+        ? _services.progress.dailyRecord(widget.day).bestTime
+        : _services.progress.record(c.level.id).bestTime;
     final next = _daily ? null : _services.levelById(widget.levelId + 1);
     final hasNext = next != null && _services.progress.isUnlocked(next.id);
     final worldClear = !_daily && c.level.id % WorldInfo.levelsPerWorld == 0;
@@ -635,11 +559,19 @@ class _GameScreenState extends State<GameScreen> {
                     const SizedBox(height: 8),
                     _StarReveal(mask: r.starMask),
                     const SizedBox(height: 10),
-                    _statRow(Icons.timer_rounded, 'Time',
-                        '${r.time.toStringAsFixed(2)}s', r.timeStar ? AppColors.greenDark : AppColors.ink,
-                        sub: 'target ${c.level.targetTime.toStringAsFixed(1)}s'),
-                    _statRow(Icons.toll_rounded, 'Coins', '${r.coins}/${r.totalCoins}',
-                        r.coinStar ? AppColors.greenDark : AppColors.ink),
+                    _statRow(
+                      Icons.timer_rounded,
+                      'Time',
+                      '${r.time.toStringAsFixed(2)}s',
+                      r.timeStar ? AppColors.greenDark : AppColors.ink,
+                      sub: 'target ${c.level.targetTime.toStringAsFixed(1)}s',
+                    ),
+                    _statRow(
+                      Icons.toll_rounded,
+                      'Coins',
+                      '${r.coins}/${r.totalCoins}',
+                      r.coinStar ? AppColors.greenDark : AppColors.ink,
+                    ),
                     if (r.style > 0) _statRow(Icons.auto_awesome_rounded, 'Style', '${r.style}', AppColors.ink),
                     if (best != null)
                       _statRow(Icons.emoji_events_rounded, 'Best', '${best.toStringAsFixed(2)}s', AppColors.ink),
@@ -651,10 +583,16 @@ class _GameScreenState extends State<GameScreen> {
                         children: [
                           const CoinIcon(size: 28),
                           const SizedBox(width: 8),
-                          Text('+${reward.total * (_doubled ? 2 : 1)}', style: display(34, color: AppColors.yellowDark)),
+                          Text(
+                            '+${reward.total * (_doubled ? 2 : 1)}',
+                            style: display(34, color: AppColors.yellowDark),
+                          ),
                           if (reward.newStars > 0) ...[
                             const SizedBox(width: 10),
-                            Text('(+${reward.newStars} ${reward.newStars == 1 ? 'star' : 'stars'})', style: body(16, weight: 600)),
+                            Text(
+                              '(+${reward.newStars} ${reward.newStars == 1 ? 'star' : 'stars'})',
+                              style: body(16, weight: 600),
+                            ),
                           ],
                         ],
                       ),
@@ -688,13 +626,23 @@ class _GameScreenState extends State<GameScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        RoundButton(icon: Icons.replay_rounded, tooltip: 'Retry', onPressed: c.retry,
-                            color: AppColors.blue, shade: AppColors.blueDark),
+                        RoundButton(
+                          icon: Icons.replay_rounded,
+                          tooltip: 'Retry',
+                          onPressed: c.retry,
+                          color: AppColors.blue,
+                          shade: AppColors.blueDark,
+                        ),
                         const SizedBox(width: 10),
                         KeyedSubtree(
                           key: _shareKey,
-                          child: RoundButton(icon: Icons.ios_share_rounded, tooltip: 'Share', onPressed: _share,
-                              color: AppColors.pink, shade: const Color(0xFFC02E63)),
+                          child: RoundButton(
+                            icon: Icons.ios_share_rounded,
+                            tooltip: 'Share',
+                            onPressed: _share,
+                            color: AppColors.pink,
+                            shade: const Color(0xFFC02E63),
+                          ),
                         ),
                         const SizedBox(width: 10),
                         ChunkyButton(
@@ -721,10 +669,7 @@ class _GameScreenState extends State<GameScreen> {
         Icon(icon, color: AppColors.greyDark, size: 22),
         const SizedBox(width: 8),
         Text(label, style: body(18, weight: 600)),
-        if (sub != null) ...[
-          const SizedBox(width: 6),
-          Text(sub, style: body(13, color: AppColors.greyDark)),
-        ],
+        if (sub != null) ...[const SizedBox(width: 6), Text(sub, style: body(13, color: AppColors.greyDark))],
         const Spacer(),
         Text(value, style: display(22, color: color, shadow: false)),
       ],
@@ -746,10 +691,19 @@ class _GameScreenState extends State<GameScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('PAUSED', textAlign: TextAlign.center, style: display(40, color: AppColors.orange)),
+                    Text(
+                      'PAUSED',
+                      textAlign: TextAlign.center,
+                      style: display(40, color: AppColors.orange),
+                    ),
                     Text(c.level.name, textAlign: TextAlign.center, style: body(18, weight: 600)),
                     const SizedBox(height: 16),
-                    ChunkyButton(onPressed: () => c.setPaused(false), label: 'Resume', icon: Icons.play_arrow_rounded, expand: true),
+                    ChunkyButton(
+                      onPressed: () => c.setPaused(false),
+                      label: 'Resume',
+                      icon: Icons.play_arrow_rounded,
+                      expand: true,
+                    ),
                     const SizedBox(height: 6),
                     ChunkyButton(
                       onPressed: () {
@@ -779,7 +733,7 @@ class _GameScreenState extends State<GameScreen> {
                           icon: progress.musicVolume > 0 ? Icons.music_note_rounded : Icons.music_off_rounded,
                           tooltip: 'Music',
                           onPressed: () {
-                            progress.setMusicVolume(progress.musicVolume > 0 ? 0 : 0.6);
+                            progress.setMusicVolume(progress.musicVolume > 0 ? 0 : 0.45);
                             _services.audio.startMusic();
                           },
                         ),
@@ -882,16 +836,16 @@ class _HudState extends State<_Hud> with SingleTickerProviderStateMixin {
               IgnorePointer(
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0x662B1D14),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
+                  decoration: BoxDecoration(color: const Color(0x662B1D14), borderRadius: BorderRadius.circular(30)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const CoinIcon(size: 22),
                       const SizedBox(width: 6),
-                      Text(endless ? '${sim.coinCount}' : '${sim.coinCount}/${c.level.coins.length}', style: display(20)),
+                      Text(
+                        endless ? '${sim.coinCount}' : '${sim.coinCount}/${c.level.coins.length}',
+                        style: display(20),
+                      ),
                     ],
                   ),
                 ),
@@ -919,8 +873,14 @@ class _HintBanner extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const _Pulse(child: Icon(Icons.touch_app_rounded, size: 64, color: Colors.white,
-                shadows: [Shadow(color: AppColors.ink, offset: Offset(0, 3))])),
+            const _Pulse(
+              child: Icon(
+                Icons.touch_app_rounded,
+                size: 64,
+                color: Colors.white,
+                shadows: [Shadow(color: AppColors.ink, offset: Offset(0, 3))],
+              ),
+            ),
             const SizedBox(height: 6),
             Text(text, textAlign: TextAlign.center, style: display(26)),
           ],
@@ -945,8 +905,11 @@ class _ReplayBadge extends StatelessWidget {
           child: Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(color: AppColors.pink, borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.ink, width: 3)),
+              decoration: BoxDecoration(
+                color: AppColors.pink,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.ink, width: 3),
+              ),
               child: Text('SLOW-MO REPLAY', style: display(18)),
             ),
           ),
@@ -975,8 +938,12 @@ class _ExportOverlay extends StatelessWidget {
                 const SizedBox(height: 14),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(value: progress, minHeight: 14,
-                      color: AppColors.orange, backgroundColor: const Color(0x22FF8A3D)),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 14,
+                    color: AppColors.orange,
+                    backgroundColor: const Color(0x22FF8A3D),
+                  ),
                 ),
               ],
             ),
@@ -1037,12 +1004,7 @@ class _StarRevealState extends State<_StarReveal> with SingleTickerProviderState
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _a,
     builder: (context, _) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < 3; i++) _star(context, i),
-        ],
-      );
+      return Row(mainAxisSize: MainAxisSize.min, children: [for (var i = 0; i < 3; i++) _star(context, i)]);
     },
   );
 

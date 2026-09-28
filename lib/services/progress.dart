@@ -90,12 +90,16 @@ class LevelReward {
     required this.completion,
     required this.newStars,
     required this.starBonus,
+    this.unlockedGolden = false,
   });
 
   final int pickups;
   final int completion;
   final int newStars;
   final int starBonus;
+
+  /// This win collected the last star and unlocked the Golden Flop.
+  final bool unlockedGolden;
 
   int get total => pickups + completion + starBonus;
 }
@@ -175,7 +179,7 @@ class ProgressStore extends ChangeNotifier {
 
   /// Collections whose gem bonus has been claimed.
   final Set<String> claimedCollections = {};
-  double musicVolume = 0.6;
+  double musicVolume = 0.45;
   double sfxVolume = 1.0;
   bool haptics = true;
 
@@ -234,7 +238,7 @@ class ProgressStore extends ChangeNotifier {
     );
     selectedSkin = (m['selectedSkin'] as String?) ?? 'floppy';
     if (!ownedSkins.contains(selectedSkin)) selectedSkin = 'floppy';
-    musicVolume = (m['musicVolume'] as num?)?.toDouble() ?? 0.6;
+    musicVolume = (m['musicVolume'] as num?)?.toDouble() ?? 0.45;
     sfxVolume = (m['sfxVolume'] as num?)?.toDouble() ?? 1.0;
     haptics = (m['haptics'] as bool?) ?? true;
     levelsSinceAd = (m['levelsSinceAd'] as num?)?.toInt() ?? 0;
@@ -275,16 +279,6 @@ class ProgressStore extends ChangeNotifier {
   }
 
   // ------------------------------------------------------------ cloud save
-
-  static const _cloudRevisionKey = 'floppy_swing_cloud_revision';
-
-  /// Revision of the cloud save this device last synced with.
-  int get cloudRevision => _prefs?.getInt(_cloudRevisionKey) ?? _memCloudRevision;
-  int _memCloudRevision = 0;
-  set cloudRevision(int r) {
-    _memCloudRevision = r;
-    unawaited(_prefs?.setInt(_cloudRevisionKey, r));
-  }
 
   /// Merges a save from another device (the cloud copy) into this one
   /// without losing progress on either side: stars, records and owned items
@@ -340,6 +334,7 @@ class ProgressStore extends ChangeNotifier {
     ownedItems.addAll(other.ownedItems);
     claimedCollections.addAll(other.claimedCollections);
     adsRemoved = adsRemoved || other.adsRemoved;
+    _checkGolden();
     _save();
   }
 
@@ -371,6 +366,17 @@ class ProgressStore extends ChangeNotifier {
 
   int get totalStars => levels.values.fold(0, (s, r) => s + r.starCount);
 
+  /// Stars that unlock the Golden Flop skin: every star in the campaign.
+  static const goldenStars = 300;
+
+  /// Grants the Golden Flop once every star is collected. True when it was
+  /// granted just now.
+  bool _checkGolden() {
+    if (totalStars < goldenStars || ownedSkins.contains('golden')) return false;
+    ownedSkins.add('golden');
+    return true;
+  }
+
   /// Applies a finished run: best records, star bonuses and coins.
   LevelReward recordWin(int levelId, RunResult r) {
     final rec = levels.putIfAbsent(levelId, LevelRecord.new);
@@ -384,6 +390,7 @@ class ProgressStore extends ChangeNotifier {
       completion: economy.levelCompleteReward,
       newStars: newStars,
       starBonus: newStars * economy.starReward,
+      unlockedGolden: _checkGolden(),
     );
     coins += reward.total;
     levelsSinceAd++;

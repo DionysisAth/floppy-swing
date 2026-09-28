@@ -10,27 +10,20 @@ what the game collects and why.
 Your progress (levels, stars, coins, gems, items, settings and best-run
 ghosts) is stored only on your device.
 
-## Online features
+## Google Play Games and Game Center
 
-When the game can reach our game server it creates an **anonymous player
-account** for you. We never ask for your real name, email or phone number.
-The server stores:
+The game has no server or accounts of its own. If you sign in to **Google Play
+Games** (Android) or **Game Center** (iOS), the game uses them to:
 
-- a random player ID and secret token, and the display name you choose (or a
-  generated one like "Flopper1234");
-- your **scores** for the Daily Challenge and Endless mode (shown on public
-  leaderboards with your display name);
-- a **cloud copy of your game progress**, so you can move to a new phone;
-- your **friends** (players you added by friend code) and your best-run
-  **ghosts** (the path your character took), shown to your friends;
-- **Fail of the Week clips** you choose to send, with an optional short
-  caption. Clips are public to other players; others can vote for or report
-  them, and we may remove clips;
-- **gameplay events** such as level started, level failed (with the cause and
-  position) and level completed, used to find levels that are too hard and to
-  improve the game.
+- post your **Daily Challenge times and Endless scores** to leaderboards,
+  shown with your Play Games / Game Center name;
+- unlock **achievements**;
+- keep a **cloud copy of your game progress** in your Play Games / iCloud
+  account, so a new phone picks up where you left off.
 
-We don't sell this data or use it for advertising.
+That data is held by Google or Apple under their policies:
+https://policies.google.com/privacy and https://www.apple.com/legal/privacy/.
+We never see your email or contact details, and we don't sell any data.
 
 ## Ads
 
@@ -43,10 +36,11 @@ https://policies.google.com/technologies/ads
 
 ## Deleting your data
 
-In Settings > Online, tap **Delete my online data** to remove your account and
-everything the server holds about you (name, scores, friends, ghosts, clips,
-cloud save and events). Uninstalling the game removes the data stored on your
-device. You can also email [contact email] to ask for deletion.
+Settings > Reset progress wipes the progress on your device, and uninstalling
+the game removes it. Your leaderboard scores, achievements and cloud save
+live in your Google Play Games or Game Center account: remove them there
+(Play Games app > Settings > Delete Play Games account and data, or on iOS
+Settings > Game Center). You can also email [contact email] with questions.
 
 ## Children
 
@@ -55,8 +49,9 @@ collect personal information from children.
 
 ## Security and retention
 
-Data is sent over HTTPS. Server data is kept while your account exists and
-removed when you delete it.
+The game stores nothing on servers of its own. Google and Apple keep
+leaderboard, achievement and saved-game data under their own retention
+policies.
 
 ## Changes and contact
 

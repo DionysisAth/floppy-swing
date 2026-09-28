@@ -225,11 +225,6 @@ class WorldRenderer {
   /// Best run's torso path, (run time, x, y, angle) per sample, drawn as a
   /// see-through ghost to race against.
   Float32List? ghost;
-
-  /// Friends' best runs, drawn as tinted ghosts with their names.
-  List<({String name, Float32List samples})> friendGhosts = const [];
-
-  static const _friendTints = [Color(0xFFFF7EB6), Color(0xFF7CE38B), Color(0xFFC9A8FF)];
   Skin skin;
   final ({double minX, double maxX, double minY}) _extent;
   final Map<String, TextPainter> _textCache = {};
@@ -368,14 +363,6 @@ class WorldRenderer {
     if (trail != null && trail.length > 2) drawTrailStyled(canvas, trail, wt, look.trail);
     if (s.ropeAnchor >= 0) _drawRope(canvas, s, events, time, wt);
     final g = ghost;
-    if (s.runTime > 0) {
-      for (var i = 0; i < friendGhosts.length; i++) {
-        final f = friendGhosts[i];
-        if (f.samples.length >= 8) {
-          _drawGhost(canvas, f.samples, s.runTime, tint: _friendTints[i % _friendTints.length], label: f.name);
-        }
-      }
-    }
     if (g != null && g.length >= 8 && s.runTime > 0) _drawGhost(canvas, g, s.runTime);
     drawRagdoll(canvas, s, skin, wt);
     _drawEffects(canvas, events, time);
@@ -385,7 +372,8 @@ class WorldRenderer {
     _drawVignette(canvas, size);
   }
 
-  void _drawGhost(Canvas canvas, Float32List g, double t, {Color tint = Palette.white, String? label}) {
+  void _drawGhost(Canvas canvas, Float32List g, double t) {
+    const tint = Palette.white;
     final n = g.length ~/ 4;
     if (t > g[(n - 1) * 4] + 1.5) return;
     // Binary search for the sample pair around t.
@@ -402,10 +390,6 @@ class WorldRenderer {
     final f = t1 > t0 ? ((t - t0) / (t1 - t0)).clamp(0.0, 1.0) : 1.0;
     double at(int k) => g[lo * 4 + k] + (g[hi * 4 + k] - g[lo * 4 + k]) * f;
     final x = at(1), y = at(2), a = at(3);
-    if (label != null) {
-      final tp = _text(label, tint, 0.5);
-      tp.paint(canvas, Offset(x - tp.width / 2, y - 2.1));
-    }
     canvas.save();
     canvas.translate(x, y);
     canvas.rotate(a);
@@ -1373,53 +1357,104 @@ class WorldRenderer {
   }
 
   /// Draws the ragdoll from a snapshot. Public so the shop can preview skins.
+  ///
+  /// Limbs are drawn "rubber hose" style: one smooth, bendy stroke through
+  /// each shoulder/elbow/hand (or hip/knee/ankle) instead of separate
+  /// capsules, with round hands and chunky shoes.
   void drawRagdoll(Canvas canvas, Snapshot s, Skin skin, double wt) {
     final dead = s.status == SimStatus.dead;
     final speed = math.sqrt(s.vx * s.vx + s.vy * s.vy);
-    Color shade(Color c) => Color.lerp(c, const Color(0xFF000000), 0.18)!;
+    Color shade(Color c) => Color.lerp(c, const Color(0xFF000000), 0.2)!;
 
-    void limb(int i, Color c, {bool back = false}) {
-      final spec = partSpecs[i];
-      canvas.save();
-      canvas.translate(s.px(i), s.py(i));
-      canvas.rotate(s.pa(i));
-      final rr = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset.zero,
-          width: spec.hw * 2,
-          height: spec.hh * 2 + spec.hw * 0.6,
-        ),
-        Radius.circular(spec.hw),
-      );
-      _fill.color = back ? shade(c) : c;
-      canvas.drawRRect(rr, _fill);
-      _stroke
-        ..color = skin.outline
-        ..strokeWidth = 0.05;
-      canvas.drawRRect(rr, _stroke);
-      // Shoes / gloves on the far end of lower limbs.
-      if (i == Part.lowerLegBack || i == Part.lowerLegFront) {
-        _fill.color = back ? shade(skin.shoes) : skin.shoes;
-        final shoe = RRect.fromRectAndRadius(
-          Rect.fromLTWH(-spec.hw * 1.1, spec.hh - 0.08, spec.hw * 3.0, 0.2),
-          const Radius.circular(0.1),
-        );
-        canvas.drawRRect(shoe, _fill);
-        canvas.drawRRect(shoe, _stroke);
-      }
-      canvas.restore();
+    // Ends of a part along its long axis: -1 = near joint, +1 = far end.
+    Offset end(int i, double sign) {
+      final a = s.pa(i), hh = partSpecs[i].hh;
+      return Offset(s.px(i) - math.sin(a) * hh * sign, s.py(i) + math.cos(a) * hh * sign);
     }
 
-    limb(Part.upperArmBack, skin.sleeves, back: true);
-    limb(Part.lowerArmBack, skin.skin, back: true);
-    limb(Part.upperLegBack, skin.pants, back: true);
-    limb(Part.lowerLegBack, skin.pants, back: true);
+    void hose(int upper, int lower, Color top, Color bottom, double width, {required bool back, required bool leg}) {
+      final a = end(upper, -1);
+      final bend = Offset.lerp(end(upper, 1), end(lower, -1), 0.5)!;
+      final c = end(lower, 1);
+      final topColor = back ? shade(top) : top;
+      final bottomColor = back ? shade(bottom) : bottom;
+      _stroke
+        ..color = skin.outline
+        ..strokeWidth = width + 0.08
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(
+        Path()
+          ..moveTo(a.dx, a.dy)
+          ..lineTo(bend.dx, bend.dy)
+          ..lineTo(c.dx, c.dy),
+        _stroke,
+      );
+      _stroke
+        ..color = topColor
+        ..strokeWidth = width;
+      canvas.drawLine(a, bend, _stroke);
+      _stroke.color = bottomColor;
+      canvas.drawLine(bend, c, _stroke);
+      // A soft highlight down the limb for a bit of roundness.
+      _stroke
+        ..color = Color.lerp(topColor, Palette.white, 0.35)!.withValues(alpha: 0.55)
+        ..strokeWidth = width * 0.25;
+      final side = Offset(-(bend - a).dy, (bend - a).dx);
+      final n = side.distance == 0 ? Offset.zero : side / side.distance * width * 0.22;
+      canvas.drawLine(a - n, bend - n, _stroke);
+
+      final angle = s.pa(lower);
+      if (leg) {
+        // Shoe pointing the way the character faces.
+        canvas.save();
+        canvas.translate(c.dx, c.dy);
+        canvas.rotate(angle);
+        final shoe = RRect.fromRectAndCorners(
+          const Rect.fromLTRB(-0.11, -0.09, 0.27, 0.11),
+          topLeft: const Radius.circular(0.08),
+          topRight: const Radius.circular(0.1),
+          bottomRight: const Radius.circular(0.06),
+          bottomLeft: const Radius.circular(0.05),
+        );
+        _fill.color = back ? shade(skin.shoes) : skin.shoes;
+        canvas.drawRRect(shoe, _fill);
+        _fill.color = Color.lerp(skin.shoes, Palette.white, 0.55)!;
+        canvas.drawRect(const Rect.fromLTRB(-0.1, 0.06, 0.26, 0.11), _fill);
+        _stroke
+          ..color = skin.outline
+          ..strokeWidth = 0.045;
+        canvas.drawRRect(shoe, _stroke);
+        canvas.restore();
+      } else {
+        final hand = back ? shade(skin.skin) : skin.skin;
+        _fill.color = hand;
+        canvas.drawCircle(c, width * 0.72, _fill);
+        _stroke
+          ..color = skin.outline
+          ..strokeWidth = 0.04;
+        canvas.drawCircle(c, width * 0.72, _stroke);
+      }
+    }
+
+    hose(Part.upperArmBack, Part.lowerArmBack, skin.sleeves, skin.skin, 0.14, back: true, leg: false);
+    hose(Part.upperLegBack, Part.lowerLegBack, skin.pants, skin.pants, 0.19, back: true, leg: true);
+    // Neck, tucked under the head.
+    final neckBase = end(Part.torso, -1);
+    final headCentre = Offset(s.px(Part.head), s.py(Part.head));
+    _stroke
+      ..color = skin.outline
+      ..strokeWidth = 0.19;
+    canvas.drawLine(neckBase, Offset.lerp(neckBase, headCentre, 0.6)!, _stroke);
+    _stroke
+      ..color = shade(skin.skin)
+      ..strokeWidth = 0.11;
+    canvas.drawLine(neckBase, Offset.lerp(neckBase, headCentre, 0.6)!, _stroke);
     _drawTorso(canvas, s, skin);
-    limb(Part.upperLegFront, skin.pants);
-    limb(Part.lowerLegFront, skin.pants);
+    hose(Part.upperLegFront, Part.lowerLegFront, skin.pants, skin.pants, 0.19, back: false, leg: true);
+    // The front arm goes under the head so a raised arm never hides the face.
+    hose(Part.upperArmFront, Part.lowerArmFront, skin.sleeves, skin.skin, 0.14, back: false, leg: false);
     _drawHead(canvas, s, skin, dead: dead, speed: speed, wt: wt);
-    limb(Part.upperArmFront, skin.sleeves);
-    limb(Part.lowerArmFront, skin.skin);
   }
 
   void _drawTorso(Canvas canvas, Snapshot s, Skin skin) {
@@ -1428,44 +1463,41 @@ class WorldRenderer {
     canvas.save();
     canvas.translate(s.px(i), s.py(i));
     canvas.rotate(s.pa(i));
-    final rr = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset.zero,
-        width: spec.hw * 2.1,
-        height: spec.hh * 2.1,
-      ),
-      const Radius.circular(0.16),
-    );
-    _fill.color = skin.shirt;
-    canvas.drawRRect(rr, _fill);
-    _fill.color = Color.lerp(
+    // A soft bean shape, a little wider at the hips.
+    final w = spec.hw * 1.08, h = spec.hh * 1.06;
+    final body = Path()
+      ..moveTo(0, -h)
+      ..cubicTo(w * 0.9, -h, w * 1.0, -h * 0.25, w * 1.02, h * 0.4)
+      ..cubicTo(w * 1.02, h * 1.02, w * 0.45, h * 1.02, 0, h)
+      ..cubicTo(-w * 0.45, h * 1.02, -w * 1.02, h * 1.02, -w * 1.02, h * 0.4)
+      ..cubicTo(-w * 1.0, -h * 0.25, -w * 0.9, -h, 0, -h)
+      ..close();
+    _fill.color = WorldRenderer._opaque;
+    _fill.shader = ui.Gradient.linear(Offset(-w, -h), Offset(w, h), [
+      Color.lerp(skin.shirt, Palette.white, 0.22)!,
       skin.shirt,
-      Palette.white,
-      0.3,
-    )!.withValues(alpha: 0.7);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          -spec.hw * 0.85,
-          -spec.hh * 0.85,
-          spec.hw * 0.45,
-          spec.hh * 1.4,
-        ),
-        const Radius.circular(0.08),
-      ),
-      _fill,
-    );
-    // Belt.
+      Color.lerp(skin.shirt, const Color(0xFF000000), 0.18)!,
+    ], const [0, 0.45, 1]);
+    canvas.drawPath(body, _fill);
+    _fill.shader = null;
+    canvas.save();
+    canvas.clipPath(body);
+    // Belt with a little buckle.
     _fill.color = skin.pants;
-    canvas.drawRect(
-      Rect.fromLTRB(
-        -spec.hw * 1.05,
-        spec.hh * 0.62,
-        spec.hw * 1.05,
-        spec.hh * 1.05,
-      ),
+    canvas.drawRect(Rect.fromLTRB(-w * 1.1, h * 0.6, w * 1.1, h * 1.1), _fill);
+    _fill.color = Color.lerp(skin.pants, const Color(0xFF000000), 0.25)!;
+    canvas.drawRect(Rect.fromLTRB(-w * 1.1, h * 0.6, w * 1.1, h * 0.66), _fill);
+    _fill.color = const Color(0xFFFFD23F);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTRB(w * 0.22, h * 0.63, w * 0.55, h * 0.86), const Radius.circular(0.02)),
       _fill,
     );
+    canvas.restore();
+    // Collar.
+    _stroke
+      ..color = Color.lerp(skin.shirt, const Color(0xFF000000), 0.3)!
+      ..strokeWidth = 0.035;
+    canvas.drawArc(Rect.fromCenter(center: Offset(0, -h), width: w * 0.9, height: h * 0.35), 0.3, math.pi - 0.6, false, _stroke);
     switch (skin.accessory) {
       case Accessory.astronaut:
         _fill.color = const Color(0xFFB0BCC8);
@@ -1536,7 +1568,7 @@ class WorldRenderer {
     _stroke
       ..color = skin.outline
       ..strokeWidth = 0.05;
-    canvas.drawRRect(rr, _stroke);
+    canvas.drawPath(body, _stroke);
     canvas.restore();
   }
 
@@ -1553,6 +1585,8 @@ class WorldRenderer {
     canvas.save();
     canvas.translate(s.px(i), s.py(i));
     canvas.rotate(s.pa(i));
+    // Drawn a bit bigger than its physics circle: cute, readable faces.
+    canvas.scale(1.18);
     final headAngle = s.pa(i);
 
     // Behind-head accessories.
@@ -1596,12 +1630,28 @@ class WorldRenderer {
       );
     }
 
-    _fill.color = skin.skin;
+    _fill.color = WorldRenderer._opaque;
+    _fill.shader = ui.Gradient.radial(Offset(r * 0.1, -r * 0.35), r * 1.25, [
+      Color.lerp(skin.skin, Palette.white, 0.28)!,
+      skin.skin,
+      Color.lerp(skin.skin, const Color(0xFF000000), 0.14)!,
+    ], const [0, 0.55, 1]);
     canvas.drawCircle(Offset.zero, r, _fill);
+    _fill.shader = null;
     _stroke
       ..color = skin.outline
-      ..strokeWidth = 0.05;
+      ..strokeWidth = 0.045;
     canvas.drawCircle(Offset.zero, r, _stroke);
+    const earred = {Accessory.hair, Accessory.pirate, Accessory.wizard, Accessory.crown};
+    if (earred.contains(skin.accessory)) {
+      final ear = Rect.fromCenter(center: Offset(-r * 0.32, r * 0.08), width: r * 0.3, height: r * 0.38);
+      _fill.color = Color.lerp(skin.skin, const Color(0xFF000000), 0.06)!;
+      canvas.drawOval(ear, _fill);
+      _stroke
+        ..color = Color.lerp(skin.skin, const Color(0xFF000000), 0.4)!
+        ..strokeWidth = 0.03;
+      canvas.drawArc(ear.deflate(r * 0.05), -1.2, 3.4, false, _stroke);
+    }
 
     switch (skin.accessory) {
       case Accessory.hair:
@@ -1806,116 +1856,99 @@ class WorldRenderer {
     required double speed,
     required Skin skin,
   }) {
-    final eyeY = -r * 0.15;
-    final eyes = [Offset(r * 0.15, eyeY), Offset(r * 0.55, eyeY)];
-    final ink = skin.accessory == Accessory.ninja
-        ? const Color(0xFF14151C)
-        : Palette.ink;
+    final eyeY = -r * 0.12;
+    final eyes = [Offset(r * 0.12, eyeY), Offset(r * 0.58, eyeY)];
+    final ink = skin.accessory == Accessory.ninja ? const Color(0xFF14151C) : Palette.ink;
     if (dead) {
       _stroke
         ..color = ink
-        ..strokeWidth = 0.045;
+        ..strokeWidth = 0.05;
       for (final e in eyes) {
-        const d = 0.07;
-        canvas.drawLine(
-          e + const Offset(-d, -d),
-          e + const Offset(d, d),
-          _stroke,
-        );
-        canvas.drawLine(
-          e + const Offset(-d, d),
-          e + const Offset(d, -d),
-          _stroke,
-        );
+        const d = 0.075;
+        canvas.drawLine(e + const Offset(-d, -d), e + const Offset(d, d), _stroke);
+        canvas.drawLine(e + const Offset(-d, d), e + const Offset(d, -d), _stroke);
       }
       // Tongue out.
       _fill.color = const Color(0xFFFF6B8A);
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(r * 0.45, r * 0.5),
-          width: r * 0.3,
-          height: r * 0.4,
-        ),
-        _fill,
-      );
-      canvas.drawLine(
-        Offset(r * 0.2, r * 0.38),
-        Offset(r * 0.7, r * 0.38),
-        _stroke,
-      );
+      canvas.drawOval(Rect.fromCenter(center: Offset(r * 0.45, r * 0.52), width: r * 0.3, height: r * 0.42), _fill);
+      _stroke.strokeWidth = 0.04;
+      canvas.drawLine(Offset(r * 0.18, r * 0.38), Offset(r * 0.72, r * 0.38), _stroke);
       return;
     }
     // Pupils look along the velocity (in head space).
     var lx = 0.0, ly = 0.0;
     if (speed > 0.5) {
       final c = math.cos(-headAngle), sn = math.sin(-headAngle);
-      lx = (s.vx * c - s.vy * sn) / speed * 0.04;
-      ly = (s.vx * sn + s.vy * c) / speed * 0.04;
+      lx = (s.vx * c - s.vy * sn) / speed * 0.045;
+      ly = (s.vx * sn + s.vy * c) / speed * 0.045;
     }
+    final excited = speed > 9;
     for (final e in eyes) {
+      final white = Rect.fromCenter(center: e, width: r * 0.36, height: r * (excited ? 0.5 : 0.44));
       _fill.color = Palette.white;
-      canvas.drawCircle(e, r * 0.2, _fill);
+      canvas.drawOval(white, _fill);
       _stroke
         ..color = ink
         ..strokeWidth = 0.03;
-      canvas.drawCircle(e, r * 0.2, _stroke);
+      canvas.drawOval(white, _stroke);
+      final pupil = e + Offset(lx, ly + r * 0.03);
       _fill.color = ink;
-      canvas.drawCircle(e + Offset(lx, ly), r * 0.1, _fill);
+      canvas.drawOval(Rect.fromCenter(center: pupil, width: r * 0.19, height: r * 0.23), _fill);
       _fill.color = Palette.white;
-      canvas.drawCircle(
-        e + Offset(lx - r * 0.035, ly - r * 0.04),
-        r * 0.035,
-        _fill,
-      );
+      canvas.drawCircle(pupil + Offset(-r * 0.04, -r * 0.05), r * 0.045, _fill);
+      canvas.drawCircle(pupil + Offset(r * 0.035, r * 0.04), r * 0.02, _fill);
+      // Eyebrows: raised when flying fast, relaxed otherwise.
+      if (skin.accessory != Accessory.knight && skin.accessory != Accessory.ninja) {
+        final lift = excited ? r * 0.12 : 0.0;
+        _stroke
+          ..color = Color.lerp(ink, skin.skin, 0.15)!
+          ..strokeWidth = 0.035;
+        canvas.drawArc(
+          Rect.fromCenter(center: e + Offset(0, -r * 0.34 - lift), width: r * 0.34, height: r * 0.16),
+          math.pi * 1.1,
+          math.pi * 0.8,
+          false,
+          _stroke,
+        );
+      }
     }
-    if (skin.accessory != Accessory.ninja &&
-        skin.accessory != Accessory.knight) {
-      _fill.color = const Color(0x55FF6B8A);
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(r * 0.72, r * 0.2),
-          width: r * 0.3,
-          height: r * 0.18,
-        ),
-        _fill,
-      );
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(r * 0.02, r * 0.2),
-          width: r * 0.26,
-          height: r * 0.16,
-        ),
-        _fill,
-      );
+    if (skin.accessory != Accessory.ninja && skin.accessory != Accessory.knight) {
+      _fill.color = const Color(0x66FF6B8A);
+      canvas.drawOval(Rect.fromCenter(center: Offset(r * 0.78, r * 0.24), width: r * 0.26, height: r * 0.16), _fill);
+      canvas.drawOval(Rect.fromCenter(center: Offset(-r * 0.02, r * 0.24), width: r * 0.22, height: r * 0.14), _fill);
     }
-    _fill.color = ink;
-    if (speed > 9) {
-      // Screaming.
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(r * 0.4, r * 0.45),
-          width: r * 0.35,
-          height: r * 0.45,
-        ),
-        _fill,
-      );
+    final mouth = Offset(r * 0.38, r * 0.38);
+    if (excited) {
+      // Screaming with joy (or terror).
+      final o = Rect.fromCenter(center: mouth + Offset(0, r * 0.04), width: r * 0.32, height: r * 0.4);
+      _fill.color = const Color(0xFF7A1F2B);
+      canvas.drawOval(o, _fill);
+      _fill.color = const Color(0xFFFF7D95);
+      canvas.drawOval(Rect.fromLTRB(o.left + r * 0.06, o.center.dy + r * 0.02, o.right - r * 0.06, o.bottom - r * 0.02), _fill);
+      _stroke
+        ..color = ink
+        ..strokeWidth = 0.03;
+      canvas.drawOval(o, _stroke);
+    } else if (speed > 4) {
+      // Open grin.
+      final grin = Path()
+        ..moveTo(mouth.dx - r * 0.24, mouth.dy - r * 0.06)
+        ..quadraticBezierTo(mouth.dx, mouth.dy + r * 0.42, mouth.dx + r * 0.24, mouth.dy - r * 0.06)
+        ..close();
+      _fill.color = const Color(0xFF7A1F2B);
+      canvas.drawPath(grin, _fill);
+      _stroke
+        ..color = ink
+        ..strokeWidth = 0.03;
+      canvas.drawPath(grin, _stroke);
     } else {
       _stroke
         ..color = ink
-        ..strokeWidth = 0.04;
-      canvas.drawArc(
-        Rect.fromCenter(
-          center: Offset(r * 0.38, r * 0.25),
-          width: r * 0.6,
-          height: r * 0.4,
-        ),
-        0.2,
-        math.pi - 0.4,
-        false,
-        _stroke,
-      );
+        ..strokeWidth = 0.035;
+      canvas.drawArc(Rect.fromCenter(center: mouth - Offset(0, r * 0.08), width: r * 0.42, height: r * 0.3), 0.35, math.pi - 0.7, false, _stroke);
     }
   }
+
 
   // --------------------------------------------------------------- effects
 

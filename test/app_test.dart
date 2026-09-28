@@ -3,8 +3,7 @@ import 'package:floppy_swing/app.dart';
 import 'package:floppy_swing/services/ads_service.dart';
 import 'package:floppy_swing/services/analytics.dart';
 import 'package:floppy_swing/services/audio_service.dart';
-import 'package:floppy_swing/services/cloud_sync.dart';
-import 'package:floppy_swing/services/online_service.dart';
+import 'package:floppy_swing/services/games_service.dart';
 import 'package:floppy_swing/services/progress.dart';
 import 'package:floppy_swing/ui/game_screen.dart';
 import 'package:floppy_swing/ui/level_select_screen.dart';
@@ -32,7 +31,6 @@ void main() {
     final progress = ProgressStore.memory(loadEconomy());
     // Audio is never initialised in tests, so every call is a silent no-op.
     final audio = AudioService(progress);
-    final online = OnlineService.disabled();
 
     await tester.pumpWidget(
       FloppySwingApp(
@@ -45,8 +43,7 @@ void main() {
           audio: audio,
           ads: NoAdsService(),
           analytics: const Analytics(),
-          online: online,
-          cloud: CloudSync(progress, online),
+          games: GamesService.disabled(progress),
           child: child,
         ),
       ),

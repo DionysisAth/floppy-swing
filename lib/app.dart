@@ -5,8 +5,7 @@ import 'game/level.dart';
 import 'services/ads_service.dart';
 import 'services/analytics.dart';
 import 'services/audio_service.dart';
-import 'services/cloud_sync.dart';
-import 'services/online_service.dart';
+import 'services/games_service.dart';
 import 'services/progress.dart';
 import 'ui/menu_screen.dart';
 import 'ui/theme.dart';
@@ -47,8 +46,7 @@ class AppServices extends InheritedWidget {
     required this.audio,
     required this.ads,
     required this.analytics,
-    required this.online,
-    required this.cloud,
+    required this.games,
     required super.child,
   });
 
@@ -63,9 +61,8 @@ class AppServices extends InheritedWidget {
   final AdsService ads;
   final Analytics analytics;
 
-  /// Game server client (leaderboards, friends, Fail of the Week...).
-  final OnlineService online;
-  final CloudSync cloud;
+  /// Google Play Games / Game Center: leaderboards, achievements, cloud save.
+  final GamesService games;
 
   static AppServices of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppServices>()!;

@@ -177,12 +177,12 @@ const skins = <Skin>[
     failSound: 'whistle',
     exclusive: true,
   ),
-  // Fail of the Week winners only.
+  // Unlocked by collecting every star (ProgressStore.goldenStars).
   Skin(
     id: 'golden',
     name: 'Golden Flop',
     price: 0,
-    tagline: 'Fail of the Week champion.',
+    tagline: 'Collect all 300 stars.',
     shirt: Color(0xFFFFC21A),
     pants: Color(0xFFE0A200),
     skin: Color(0xFFFFD86B),

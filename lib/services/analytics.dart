@@ -1,12 +1,13 @@
 import 'package:flutter/foundation.dart';
 
-/// Gameplay analytics. Events go to the debug log and, when a server is
-/// configured, to its `/v1/events` endpoint (see the admin stats there). The events are chosen to find levels that are too hard:
-/// compare `level_fail` counts and causes against `level_complete`.
+/// Gameplay analytics. Events go to the debug log, and to [sink] when one is
+/// plugged in (e.g. a free analytics SDK such as Firebase Analytics). The
+/// events are chosen to find levels that are too hard: compare `level_fail`
+/// counts and causes against `level_complete`.
 class Analytics {
   const Analytics({this.sink});
 
-  /// Where events go besides the debug log (the game server, when online).
+  /// Where events go besides the debug log.
   final void Function(String event, Map<String, Object?> params)? sink;
 
   void log(String event, [Map<String, Object?> params = const {}]) {
@@ -42,5 +43,4 @@ class Analytics {
   void endlessRun(int distance, int score) => log('endless_run', {'distance': distance, 'score': score});
   void dailyComplete(int day, double time) => log('daily_complete', {'day': day, 'time': time.toStringAsFixed(2)});
   void itemBought(String id, String currency) => log('item_bought', {'id': id, 'currency': currency});
-  void failSubmitted() => log('fail_submitted');
 }

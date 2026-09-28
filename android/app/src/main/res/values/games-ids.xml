@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Google Play Games Services project id. Play Console > Grow users >
+  Play Games Services > Setup and management > Configuration shows it (and
+  can export a whole games-ids.xml: paste its app_id value here).
+
+  Then switch Android on in lib/services/games_ids.dart. Until then the app
+  never calls Play Games, so this placeholder is harmless.
+  See docs/GAMES_SERVICES.md.
+-->
+<resources>
+    <string name="game_services_project_id" translatable="false">000000000000</string>
+</resources>
