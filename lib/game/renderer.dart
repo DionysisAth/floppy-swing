@@ -199,10 +199,6 @@ class WorldTheme {
 
 /// Draws a level and a [Frame] onto a canvas. Stateless apart from caches, so
 /// the same renderer draws live play, slow-motion replays and exported clips.
-// TEMPORARY bisect switches (see .github/workflows/bisect.yml).
-const _ragDebug = String.fromEnvironment('RAG_DEBUG');
-bool _ragOff(String k) => _ragDebug.split(',').contains(k);
-
 class WorldRenderer {
   WorldRenderer(this.level, this.skin, {this.endless = false})
     : _extent = level.extent,
@@ -1382,14 +1378,6 @@ class WorldRenderer {
       final c = end(lower, 1);
       final topColor = back ? shade(top) : top;
       final bottomColor = back ? shade(bottom) : bottom;
-      if (_ragOff('hose')) {
-        _stroke
-          ..color = topColor
-          ..strokeWidth = width;
-        canvas.drawLine(a, bend, _stroke);
-        canvas.drawLine(bend, c, _stroke);
-        return;
-      }
       _stroke
         ..color = skin.outline
         ..strokeWidth = width + 0.08
@@ -1469,59 +1457,56 @@ class WorldRenderer {
     _drawHead(canvas, s, skin, dead: dead, speed: speed, wt: wt);
   }
 
-  /// Torso outline and belt, built once (every ragdoll has the same torso).
-  static Path? _torsoBody, _torsoBelt, _torsoBeltLine;
-
   void _drawTorso(Canvas canvas, Snapshot s, Skin skin) {
     const i = Part.torso;
     final spec = partSpecs[i];
     canvas.save();
     canvas.translate(s.px(i), s.py(i));
     canvas.rotate(s.pa(i));
-    // A soft bean shape, a little wider at the hips.
-    final w = spec.hw * 1.08, h = spec.hh * 1.06;
-    final body = _torsoBody ??= Path()
-      ..moveTo(0, -h)
-      ..cubicTo(w * 0.9, -h, w * 1.0, -h * 0.25, w * 1.02, h * 0.4)
-      ..cubicTo(w * 1.02, h * 1.02, w * 0.45, h * 1.02, 0, h)
-      ..cubicTo(-w * 0.45, h * 1.02, -w * 1.02, h * 1.02, -w * 1.02, h * 0.4)
-      ..cubicTo(-w * 1.0, -h * 0.25, -w * 0.9, -h, 0, -h)
-      ..close();
-    // The belt is the body's lower band, cut to its outline once (a path
-    // clip every frame is slow on some GPUs).
-    Path band(double top, double bottom) =>
-        Path.combine(PathOperation.intersect, body, Path()..addRect(Rect.fromLTRB(-w * 1.1, top, w * 1.1, bottom)));
-    final belt = _torsoBelt ??= band(h * 0.6, h * 1.1);
-    final beltLine = _torsoBeltLine ??= band(h * 0.6, h * 0.66);
-    if (_ragOff('torso')) {
-      _fill.color = skin.shirt;
-      canvas.drawRect(Rect.fromLTRB(-w, -h, w, h), _fill);
-      canvas.restore();
-      return;
-    }
-    _fill.color = WorldRenderer._opaque;
-    _fill.shader = ui.Gradient.linear(Offset(-w, -h), Offset(w, h), [
-      Color.lerp(skin.shirt, Palette.white, 0.22)!,
-      skin.shirt,
-      Color.lerp(skin.shirt, const Color(0xFF000000), 0.18)!,
-    ], const [0, 0.45, 1]);
-    canvas.drawPath(body, _fill);
-    _fill.shader = null;
-    // Belt with a little buckle.
+    // A soft bean shape, rounder at the hips. Built from rounded rectangles
+    // only: a curved path here (filled and stroked every frame) froze the
+    // Android emulator's software GPU.
+    final w = spec.hw * 1.05, h = spec.hh * 1.06;
+    const shoulder = Radius.circular(0.13), hip = Radius.circular(0.2);
+    final body = RRect.fromRectAndCorners(
+      Rect.fromLTRB(-w, -h, w, h),
+      topLeft: shoulder,
+      topRight: shoulder,
+      bottomLeft: hip,
+      bottomRight: hip,
+    );
+    _fill.color = skin.shirt;
+    canvas.drawRRect(body, _fill);
+    // Light from the front-top, shade along the back.
+    _fill.color = Color.lerp(skin.shirt, Palette.white, 0.25)!.withValues(alpha: 0.8);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTRB(w * 0.2, -h * 0.82, w * 0.62, h * 0.35), const Radius.circular(0.07)),
+      _fill,
+    );
+    _fill.color = Color.lerp(skin.shirt, const Color(0xFF000000), 0.16)!;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTRB(-w * 0.9, -h * 0.7, -w * 0.55, h * 0.45), const Radius.circular(0.06)),
+      _fill,
+    );
+    // Belt: the body's lower band, with the same hip corners so it fits.
     _fill.color = skin.pants;
-    canvas.drawPath(belt, _fill);
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(Rect.fromLTRB(-w, h * 0.6, w, h), bottomLeft: hip, bottomRight: hip),
+      _fill,
+    );
     _fill.color = Color.lerp(skin.pants, const Color(0xFF000000), 0.25)!;
-    canvas.drawPath(beltLine, _fill);
+    canvas.drawRect(Rect.fromLTRB(-w, h * 0.6, w, h * 0.66), _fill);
     _fill.color = const Color(0xFFFFD23F);
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTRB(w * 0.22, h * 0.63, w * 0.55, h * 0.86), const Radius.circular(0.02)),
       _fill,
     );
-    // Collar.
+    // A little V collar.
     _stroke
       ..color = Color.lerp(skin.shirt, const Color(0xFF000000), 0.3)!
       ..strokeWidth = 0.035;
-    canvas.drawArc(Rect.fromCenter(center: Offset(0, -h), width: w * 0.9, height: h * 0.35), 0.3, math.pi - 0.6, false, _stroke);
+    canvas.drawLine(Offset(-w * 0.35, -h * 0.97), Offset(0, -h * 0.8), _stroke);
+    canvas.drawLine(Offset(0, -h * 0.8), Offset(w * 0.35, -h * 0.97), _stroke);
     switch (skin.accessory) {
       case Accessory.astronaut:
         _fill.color = const Color(0xFFB0BCC8);
@@ -1592,7 +1577,7 @@ class WorldRenderer {
     _stroke
       ..color = skin.outline
       ..strokeWidth = 0.05;
-    canvas.drawPath(body, _stroke);
+    canvas.drawRRect(body, _stroke);
     canvas.restore();
   }
 
@@ -1610,7 +1595,7 @@ class WorldRenderer {
     canvas.translate(s.px(i), s.py(i));
     canvas.rotate(s.pa(i));
     // Drawn a bit bigger than its physics circle: cute, readable faces.
-    if (!_ragOff('scale')) canvas.scale(1.18);
+    canvas.scale(1.18);
     final headAngle = s.pa(i);
 
     // Behind-head accessories.
@@ -1654,14 +1639,12 @@ class WorldRenderer {
       );
     }
 
-    _fill.color = _ragOff('headgrad') ? skin.skin : WorldRenderer._opaque;
-    if (!_ragOff('headgrad')) {
-      _fill.shader = ui.Gradient.radial(Offset(r * 0.1, -r * 0.35), r * 1.25, [
-        Color.lerp(skin.skin, Palette.white, 0.28)!,
-        skin.skin,
-        Color.lerp(skin.skin, const Color(0xFF000000), 0.14)!,
-      ], const [0, 0.55, 1]);
-    }
+    _fill.color = WorldRenderer._opaque;
+    _fill.shader = ui.Gradient.radial(Offset(r * 0.1, -r * 0.35), r * 1.25, [
+      Color.lerp(skin.skin, Palette.white, 0.28)!,
+      skin.skin,
+      Color.lerp(skin.skin, const Color(0xFF000000), 0.14)!,
+    ], const [0, 0.55, 1]);
     canvas.drawCircle(Offset.zero, r, _fill);
     _fill.shader = null;
     _stroke
@@ -1745,7 +1728,7 @@ class WorldRenderer {
         break;
     }
 
-    if (!_ragOff('face')) _drawFace(canvas, s, r, headAngle, dead: dead, speed: speed, skin: skin);
+    _drawFace(canvas, s, r, headAngle, dead: dead, speed: speed, skin: skin);
 
     switch (skin.accessory) {
       case Accessory.knight:
