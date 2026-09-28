@@ -199,6 +199,10 @@ class WorldTheme {
 
 /// Draws a level and a [Frame] onto a canvas. Stateless apart from caches, so
 /// the same renderer draws live play, slow-motion replays and exported clips.
+// TEMPORARY bisect switches (see .github/workflows/bisect.yml).
+const _ragDebug = String.fromEnvironment('RAG_DEBUG');
+bool _ragOff(String k) => _ragDebug.split(',').contains(k);
+
 class WorldRenderer {
   WorldRenderer(this.level, this.skin, {this.endless = false})
     : _extent = level.extent,
@@ -1378,6 +1382,14 @@ class WorldRenderer {
       final c = end(lower, 1);
       final topColor = back ? shade(top) : top;
       final bottomColor = back ? shade(bottom) : bottom;
+      if (_ragOff('hose')) {
+        _stroke
+          ..color = topColor
+          ..strokeWidth = width;
+        canvas.drawLine(a, bend, _stroke);
+        canvas.drawLine(bend, c, _stroke);
+        return;
+      }
       _stroke
         ..color = skin.outline
         ..strokeWidth = width + 0.08
@@ -1481,6 +1493,12 @@ class WorldRenderer {
         Path.combine(PathOperation.intersect, body, Path()..addRect(Rect.fromLTRB(-w * 1.1, top, w * 1.1, bottom)));
     final belt = _torsoBelt ??= band(h * 0.6, h * 1.1);
     final beltLine = _torsoBeltLine ??= band(h * 0.6, h * 0.66);
+    if (_ragOff('torso')) {
+      _fill.color = skin.shirt;
+      canvas.drawRect(Rect.fromLTRB(-w, -h, w, h), _fill);
+      canvas.restore();
+      return;
+    }
     _fill.color = WorldRenderer._opaque;
     _fill.shader = ui.Gradient.linear(Offset(-w, -h), Offset(w, h), [
       Color.lerp(skin.shirt, Palette.white, 0.22)!,
@@ -1592,7 +1610,7 @@ class WorldRenderer {
     canvas.translate(s.px(i), s.py(i));
     canvas.rotate(s.pa(i));
     // Drawn a bit bigger than its physics circle: cute, readable faces.
-    canvas.scale(1.18);
+    if (!_ragOff('scale')) canvas.scale(1.18);
     final headAngle = s.pa(i);
 
     // Behind-head accessories.
@@ -1636,12 +1654,14 @@ class WorldRenderer {
       );
     }
 
-    _fill.color = WorldRenderer._opaque;
-    _fill.shader = ui.Gradient.radial(Offset(r * 0.1, -r * 0.35), r * 1.25, [
-      Color.lerp(skin.skin, Palette.white, 0.28)!,
-      skin.skin,
-      Color.lerp(skin.skin, const Color(0xFF000000), 0.14)!,
-    ], const [0, 0.55, 1]);
+    _fill.color = _ragOff('headgrad') ? skin.skin : WorldRenderer._opaque;
+    if (!_ragOff('headgrad')) {
+      _fill.shader = ui.Gradient.radial(Offset(r * 0.1, -r * 0.35), r * 1.25, [
+        Color.lerp(skin.skin, Palette.white, 0.28)!,
+        skin.skin,
+        Color.lerp(skin.skin, const Color(0xFF000000), 0.14)!,
+      ], const [0, 0.55, 1]);
+    }
     canvas.drawCircle(Offset.zero, r, _fill);
     _fill.shader = null;
     _stroke
@@ -1725,7 +1745,7 @@ class WorldRenderer {
         break;
     }
 
-    _drawFace(canvas, s, r, headAngle, dead: dead, speed: speed, skin: skin);
+    if (!_ragOff('face')) _drawFace(canvas, s, r, headAngle, dead: dead, speed: speed, skin: skin);
 
     switch (skin.accessory) {
       case Accessory.knight:
