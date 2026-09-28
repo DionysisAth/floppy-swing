@@ -66,6 +66,17 @@ jobs:
           flutter build appbundle --release
           cp build/app/outputs/bundle/release/app-release.aab FloppySwing.aab
       - run: cp build/app/outputs/flutter-apk/app-release.apk FloppySwing.apk
+      # Play Games must not start itself at launch (it's started on demand
+      # once its ids are set; see AndroidManifest.xml).
+      - name: Check the APK manifest
+        run: |
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT2" dump xmltree FloppySwing.apk --file AndroidManifest.xml > manifest.txt
+          grep -iE "provider|games" manifest.txt | grep -i "name" || true
+          if grep -q "PlayGamesInitProvider" manifest.txt; then
+            echo "::error::PlayGamesInitProvider is still in the manifest"
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: FloppySwing-android

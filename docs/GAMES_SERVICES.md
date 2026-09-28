@@ -61,6 +61,11 @@ work before any of this is done.
 
 ## How it behaves
 
+- Android: the Play Games SDK's automatic start-up provider is removed from
+  the manifest, and `MainActivity` starts the SDK only when the game asks
+  (i.e. once `playGamesIds.enabled` is true). Builds without ids never touch
+  Play Games; CI checks the APK for this.
+
 - On launch the game signs in quietly. On success it merges the cloud save
   into the local one (`ProgressStore.mergeFrom`: stars, records and owned
   items are combined, currencies take the higher value), uploads the result,

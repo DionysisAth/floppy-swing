@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:games_services/games_services.dart' as gs;
 
@@ -318,8 +319,16 @@ class PlatformGamesBackend extends GamesBackend {
     Board.endless => ids.endless,
   };
 
+  /// Starts the Play Games SDK (Android only; see MainActivity.kt).
+  static const _playGames = MethodChannel('floppy_swing/play_games');
+  static bool _initialized = false;
+
   @override
   Future<String?> signIn() async {
+    if (_android && !_initialized) {
+      await _playGames.invokeMethod<void>('initialize');
+      _initialized = true;
+    }
     await gs.GamesServices.signIn();
     if (!await gs.GamesServices.isSignedIn) return null;
     return await gs.Player.getPlayerName() ?? '';
