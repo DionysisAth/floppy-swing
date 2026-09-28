@@ -8,12 +8,37 @@ PKG=com.floppyswing.floppy_swing
 # wait for a device forever and the job would hang until GitHub kills it.
 a() { timeout 60 adb "$@"; }
 
+# What the host and the app were doing when the emulator died: the logcat
+# artifact isn't always easy to get to, so print the useful parts here.
+diagnose() {
+  echo "---- host memory samples (emulator RSS MB, host available MB) ----"
+  cat mem_samples.txt 2>/dev/null | tail -40
+  echo "---- dmesg (OOM killer / crashes) ----"
+  sudo dmesg 2>/dev/null | grep -iE "oom|killed process|qemu|emulator|segfault" | tail -20
+  echo "---- last app / graphics log lines ----"
+  grep -E "FATAL|AndroidRuntime|flutter|Impeller|Vulkan|EGL|OpenGL|gralloc|lowmemorykiller|Games|GamesServices" logcat.txt | tail -80
+  echo "---- logcat tail ----"
+  tail -40 logcat.txt
+}
+
 emulator_alive() {
   if [ "$(timeout 15 adb get-state 2>/dev/null | tr -d '\r')" != "device" ]; then
-    echo "::error::The emulator went offline during the test ($1). This is an emulator/CI problem, not an app crash; see logcat.txt for what the app logged before."
+    echo "::error::The emulator went offline during the test ($1). See the diagnostics below and logcat.txt."
+    diagnose
     exit 2
   fi
 }
+
+# Sample the emulator's memory every 2 s (a host OOM kill leaves no other trace).
+(
+  while true; do
+    RSS=$(ps -eo rss,comm | awk '/qemu-system|emulator/ {s+=$1} END {print int(s/1024)}')
+    AVAIL=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+    echo "$(date +%T) emulator=${RSS}MB available=${AVAIL}MB" >> mem_samples.txt
+    sleep 2
+  done
+) &
+MEM_PID=$!
 
 a install -r FloppySwing.apk
 a logcat -c
@@ -21,7 +46,7 @@ a logcat -c
 # emulator dies mid-test.
 timeout 600 adb logcat > logcat.txt 2>/dev/null &
 LOGCAT_PID=$!
-trap 'kill $LOGCAT_PID 2>/dev/null' EXIT
+trap 'kill $LOGCAT_PID $MEM_PID 2>/dev/null' EXIT
 a shell am start -W -n "$PKG/.MainActivity"
 sleep 25
 emulator_alive "after launch"

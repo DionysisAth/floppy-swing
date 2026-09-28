@@ -1457,6 +1457,9 @@ class WorldRenderer {
     _drawHead(canvas, s, skin, dead: dead, speed: speed, wt: wt);
   }
 
+  /// Torso outline and belt, built once (every ragdoll has the same torso).
+  static Path? _torsoBody, _torsoBelt, _torsoBeltLine;
+
   void _drawTorso(Canvas canvas, Snapshot s, Skin skin) {
     const i = Part.torso;
     final spec = partSpecs[i];
@@ -1465,13 +1468,19 @@ class WorldRenderer {
     canvas.rotate(s.pa(i));
     // A soft bean shape, a little wider at the hips.
     final w = spec.hw * 1.08, h = spec.hh * 1.06;
-    final body = Path()
+    final body = _torsoBody ??= Path()
       ..moveTo(0, -h)
       ..cubicTo(w * 0.9, -h, w * 1.0, -h * 0.25, w * 1.02, h * 0.4)
       ..cubicTo(w * 1.02, h * 1.02, w * 0.45, h * 1.02, 0, h)
       ..cubicTo(-w * 0.45, h * 1.02, -w * 1.02, h * 1.02, -w * 1.02, h * 0.4)
       ..cubicTo(-w * 1.0, -h * 0.25, -w * 0.9, -h, 0, -h)
       ..close();
+    // The belt is the body's lower band, cut to its outline once (a path
+    // clip every frame is slow on some GPUs).
+    Path band(double top, double bottom) =>
+        Path.combine(PathOperation.intersect, body, Path()..addRect(Rect.fromLTRB(-w * 1.1, top, w * 1.1, bottom)));
+    final belt = _torsoBelt ??= band(h * 0.6, h * 1.1);
+    final beltLine = _torsoBeltLine ??= band(h * 0.6, h * 0.66);
     _fill.color = WorldRenderer._opaque;
     _fill.shader = ui.Gradient.linear(Offset(-w, -h), Offset(w, h), [
       Color.lerp(skin.shirt, Palette.white, 0.22)!,
@@ -1480,19 +1489,16 @@ class WorldRenderer {
     ], const [0, 0.45, 1]);
     canvas.drawPath(body, _fill);
     _fill.shader = null;
-    canvas.save();
-    canvas.clipPath(body);
     // Belt with a little buckle.
     _fill.color = skin.pants;
-    canvas.drawRect(Rect.fromLTRB(-w * 1.1, h * 0.6, w * 1.1, h * 1.1), _fill);
+    canvas.drawPath(belt, _fill);
     _fill.color = Color.lerp(skin.pants, const Color(0xFF000000), 0.25)!;
-    canvas.drawRect(Rect.fromLTRB(-w * 1.1, h * 0.6, w * 1.1, h * 0.66), _fill);
+    canvas.drawPath(beltLine, _fill);
     _fill.color = const Color(0xFFFFD23F);
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTRB(w * 0.22, h * 0.63, w * 0.55, h * 0.86), const Radius.circular(0.02)),
       _fill,
     );
-    canvas.restore();
     // Collar.
     _stroke
       ..color = Color.lerp(skin.shirt, const Color(0xFF000000), 0.3)!

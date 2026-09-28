@@ -101,6 +101,7 @@ jobs:
           name: android-smoke-test
           path: |
             logcat.txt
+            mem_samples.txt
             smoke_*.png
 
   ios:
