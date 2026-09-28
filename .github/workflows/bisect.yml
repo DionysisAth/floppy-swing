@@ -1,0 +1,81 @@
+# TEMPORARY: finds which change makes the emulator smoke test die ~30 s
+# after launch. Builds the APK in several variants and launches each on the
+# same emulator setup as build.yml. Delete once the cause is known.
+name: Bisect smoke test
+
+on:
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/bisect.yml']
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: 3.47.5
+  GOOD: 18e649bd3ea7909550cbbb642a461938c3f2fb86 # test-build-12, passed
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [control, current, old-music, old-ragdoll]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply variant
+        run: |
+          case "${{ matrix.variant }}" in
+            control) git checkout --detach "$GOOD" ;;
+            current) ;;
+            old-music) git checkout "$GOOD" -- assets/audio ;;
+            old-ragdoll) git checkout "$GOOD" -- lib/game/renderer.dart ;;
+          esac
+          git status --short | head -20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - run: cp build/app/outputs/flutter-apk/app-release.apk FloppySwing.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ matrix.variant }}
+          path: FloppySwing.apk
+
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [control, current, old-music, old-ragdoll]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk-${{ matrix.variant }}
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Launch on emulator (${{ matrix.variant }})
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: bash tool/ci_smoke_test.sh
