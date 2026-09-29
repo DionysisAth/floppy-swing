@@ -4,8 +4,8 @@
 //   python3 tool/icon/make_icons.py      # resizes into the platform folders
 //
 // Writes tool/icon/out/icon.png (1024, opaque, for iOS/stores),
-// foreground.png (1024, transparent, Android adaptive icon) and logo.png
-// (transparent, splash screens).
+// background.png + foreground.png (1024, the Android adaptive icon's two
+// layers) and logo.png (transparent, splash screens).
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -59,12 +59,12 @@ Future<void> save(ui.Picture picture, int size, String name) async {
 }
 
 /// Sunburst sky: warm rays fanning out from behind the character.
-void background(Canvas canvas, double size, Offset centre) {
+void background(Canvas canvas, double size, Offset centre, {double spread = 1}) {
   final rect = Rect.fromLTWH(0, 0, size, size);
   canvas.drawRect(
     rect,
     Paint()
-      ..shader = ui.Gradient.radial(centre, size * 0.85, const [
+      ..shader = ui.Gradient.radial(centre, size * 0.85 * spread, const [
         Color(0xFFFFE27A),
         Color(0xFFFFA93B),
         Color(0xFFFF6B3D),
@@ -87,9 +87,9 @@ void background(Canvas canvas, double size, Offset centre) {
   // Soft glow right behind the hero.
   canvas.drawCircle(
     centre,
-    size * 0.32,
+    size * 0.32 * spread,
     Paint()
-      ..shader = ui.Gradient.radial(centre, size * 0.32, const [Color(0x88FFFFFF), Color(0x00FFFFFF)]),
+      ..shader = ui.Gradient.radial(centre, size * 0.32 * spread, const [Color(0x88FFFFFF), Color(0x00FFFFFF)]),
   );
 }
 
@@ -159,6 +159,32 @@ void ring(Canvas canvas, Offset c, double r) {
   canvas.drawCircle(c, r * 0.35, Paint()..color = const Color(0xFF2D9CFF));
 }
 
+/// Draws [draw] with a soft drop shadow and a thick white sticker outline, the
+/// way mobile game icons make their hero pop off the background. [outline]
+/// is in the canvas's current units (layer filters use the local transform).
+void sticker(Canvas canvas, void Function(Canvas) draw, {required double outline, required Offset shadow}) {
+  canvas.save();
+  canvas.translate(shadow.dx, shadow.dy);
+  canvas.saveLayer(
+    null,
+    Paint()
+      ..colorFilter = const ColorFilter.mode(Color(0x66401010), BlendMode.srcIn)
+      ..imageFilter = ui.ImageFilter.blur(sigmaX: outline * 1.2, sigmaY: outline * 1.2),
+  );
+  draw(canvas);
+  canvas.restore();
+  canvas.restore();
+  canvas.saveLayer(
+    null,
+    Paint()
+      ..colorFilter = const ColorFilter.mode(Color(0xFFFFFFFF), BlendMode.srcIn)
+      ..imageFilter = ui.ImageFilter.dilate(radiusX: outline, radiusY: outline),
+  );
+  draw(canvas);
+  canvas.restore();
+  draw(canvas);
+}
+
 void main() {
   test('icon', () async {
     const size = 1024.0;
@@ -170,50 +196,66 @@ void main() {
     final torso = Offset(s.px(0), s.py(0));
     final hand = WorldRenderer.handPosition(s);
     final toRing = const Offset(2.5, -8) - hand;
-    final anchor = hand + toRing / toRing.distance * 1.3;
+    final anchor = hand + toRing / toRing.distance * 1.15;
 
-    for (final (name, full, zoom) in [('icon', true, 1.0), ('foreground', false, 0.55), ('logo', false, 0.9)]) {
+    // icon: the whole scene (iOS, stores, legacy Android).
+    // background / foreground: Android adaptive icon layers. The launcher
+    // shows roughly the middle 2/3 of these, masked to a circle or squircle.
+    // logo: hero only, for the splash screens.
+    for (final (name, back, hero, zoom) in [
+      ('icon', true, true, 1.08),
+      ('background', true, false, 0.62),
+      ('foreground', false, true, 0.62),
+      ('logo', false, true, 0.9),
+    ]) {
       final rec = ui.PictureRecorder();
       final canvas = Canvas(rec);
       // World units -> icon pixels, framed on the space between ring and body.
-      final centre = torso + const Offset(-0.3, -0.55);
+      final centre = torso + const Offset(-0.34, -0.58);
       final scale = size / 3.7 * zoom;
       Offset px(Offset w) => Offset(size / 2 + (w.dx - centre.dx) * scale, size / 2 + (w.dy - centre.dy) * scale);
-      if (full) background(canvas, size, px(torso));
+      // Adaptive layers only show their middle 2/3: squeeze the sunburst to match.
+      if (back) background(canvas, size, px(torso), spread: name == 'icon' ? 1 : 0.7);
 
       canvas.save();
       canvas.translate(size / 2, size / 2);
       canvas.scale(scale);
       canvas.translate(-centre.dx, -centre.dy);
-      final unit = 1 / scale * size; // pixels per world unit, inverted
 
-      if (full) {
+      if (back) {
+        // The swing: a wide translucent arc sweeping through the hero.
+        canvas.drawArc(
+          Rect.fromCircle(center: anchor, radius: (torso - anchor).distance),
+          0.35,
+          1.9,
+          false,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeCap = StrokeCap.round
+            ..strokeWidth = 0.34
+            ..color = const Color(0x33FFFFFF),
+        );
         // Speed lines streaming behind the flight.
         final line = Paint()
           ..strokeCap = StrokeCap.round
-          ..color = const Color(0x99FFFFFF);
-        for (final (dy, len, w) in [(-0.6, 1.2, 0.05), (-0.2, 1.6, 0.07), (0.3, 1.3, 0.06), (0.75, 1.0, 0.05)]) {
+          ..color = const Color(0xAAFFFFFF);
+        for (final (dy, len, w) in [(-0.6, 1.2, 0.06), (-0.2, 1.6, 0.08), (0.3, 1.3, 0.07), (0.75, 1.0, 0.06)]) {
           line.strokeWidth = w;
           final start = torso + Offset(-0.75, dy);
           canvas.drawLine(start, start + Offset(-len, len * 0.28), line);
         }
         // A saw lurking below and coins flying by.
         saw(canvas, torso + const Offset(-1.35, 1.2), 0.55, 0.3);
-        coin(canvas, torso + const Offset(0.95, -0.95), 0.17, 1);
-        coin(canvas, torso + const Offset(1.3, -0.25), 0.14, 0.55);
-        coin(canvas, torso + const Offset(1.05, 0.55), 0.12, 0.8);
-      }
-      // A fiery trail behind the hero.
-      final trail = [
-        for (var k = 14; k >= 0; k--) torso + Offset(-k * 0.09, k * 0.03 + math.sin(k * 0.4) * 0.04),
-      ];
-      renderer.drawTrailStyled(canvas, trail, 0.4, 'fire');
-      renderer.drawRopeStyled(canvas, hand, Offset.lerp(hand, anchor, 0.5)! + const Offset(0.05, 0.1), anchor, 0, 'rope');
-      ring(canvas, anchor, 0.34);
-      renderer.drawRagdoll(canvas, s, skins.first, 0.3);
-      if (full) {
+        coin(canvas, torso + const Offset(0.95, -0.95), 0.19, 1);
+        coin(canvas, torso + const Offset(1.3, -0.2), 0.15, 0.55);
+        coin(canvas, torso + const Offset(1.05, 0.6), 0.13, 0.8);
         // Sparkles.
-        for (final (o, r) in [(const Offset(0.5, -1.75), 0.14), (const Offset(-0.9, -0.9), 0.09), (const Offset(1.35, 1.05), 0.1)]) {
+        for (final (o, r) in [
+          (const Offset(0.5, -1.75), 0.16),
+          (const Offset(-0.9, -0.9), 0.1),
+          (const Offset(1.4, 1.05), 0.12),
+          (const Offset(-1.6, 0.2), 0.08),
+        ]) {
           final p = torso + o;
           final star = Path();
           for (var k = 0; k < 8; k++) {
@@ -225,7 +267,23 @@ void main() {
           canvas.drawPath(star..close(), Paint()..color = const Color(0xFFFFFFFF));
         }
       }
-      assert(unit > 0);
+      if (hero) {
+        // A fiery trail behind the hero (outside the sticker: it's a glow).
+        final trail = [
+          for (var k = 16; k >= 0; k--) torso + Offset(-k * 0.09, k * 0.03 + math.sin(k * 0.4) * 0.04),
+        ];
+        renderer.drawTrailStyled(canvas, trail, 0.4, 'fire');
+        ring(canvas, anchor, 0.34);
+        sticker(
+          canvas,
+          (c) {
+            renderer.drawRopeStyled(c, hand, Offset.lerp(hand, anchor, 0.5)! + const Offset(0.05, 0.08), anchor, 0, 'rope');
+            renderer.drawRagdoll(c, s, skins.first, 0.3);
+          },
+          outline: 13 / 1024 * 3.7, // ~13 px at full zoom, in world units
+          shadow: const Offset(0.05, 0.08),
+        );
+      }
       canvas.restore();
       await save(rec.endRecording(), size.toInt(), name);
     }

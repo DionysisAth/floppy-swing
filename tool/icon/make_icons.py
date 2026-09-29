@@ -16,6 +16,7 @@ IOS = os.path.join(ROOT, 'ios', 'Runner', 'Assets.xcassets')
 
 icon = Image.open(os.path.join(OUT, 'icon.png')).convert('RGB')  # iOS icons must be opaque
 foreground = Image.open(os.path.join(OUT, 'foreground.png')).convert('RGBA')
+background = Image.open(os.path.join(OUT, 'background.png')).convert('RGB')
 logo = Image.open(os.path.join(OUT, 'logo.png')).convert('RGBA')
 
 
@@ -36,11 +37,13 @@ with open(os.path.join(icon_set, 'Contents.json')) as f:
 for suffix, size in (('', 240), ('@2x', 480), ('@3x', 720)):
     save(logo, size, os.path.join(IOS, 'LaunchImage.imageset', f'LaunchImage{suffix}.png'))
 
-# Android launcher icons (legacy square and adaptive foreground) and splash logo.
+# Android launcher icons (legacy square, adaptive background + foreground) and
+# splash logo.
 densities = {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}
 for name, k in densities.items():
     save(icon, round(48 * k), os.path.join(RES, f'mipmap-{name}', 'ic_launcher.png'))
     save(foreground, round(108 * k), os.path.join(RES, f'mipmap-{name}', 'ic_launcher_foreground.png'))
+    save(background, round(108 * k), os.path.join(RES, f'mipmap-{name}', 'ic_launcher_background.png'))
     save(logo, round(160 * k), os.path.join(RES, f'drawable-{name}', 'splash_logo.png'))
 
 print('icons written')

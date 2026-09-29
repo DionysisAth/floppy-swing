@@ -48,7 +48,7 @@ need no server of your own. See `docs/NEXT_STEPS.md` for what's left and
 - **Level skip:** after 5 attempts at a campaign level you can skip it for gems. It unlocks the next level but earns no stars.
 - **Ads:** rewarded videos to revive at a checkpoint and to double coins. Interstitials only show when leaving a won level, at most every 3 wins and 2 minutes, never before level 8, and never after a fail. A "remove ads" flag is ready for when purchases exist.
 - Menu with an attract-mode demo (the autopilot plays level 1), world and level select, shop, Season Pass, settings (music and SFX volume, mute, vibration, privacy options, reset).
-- Generated sound effects and a calm, soft music loop per world (`tool/gen_audio.py`), plus haptics.
+- Generated sound effects and an upbeat but soft music loop per world (bouncy bass, off-beat plucks, a light groove; `tool/gen_audio.py`), plus haptics.
 
 ## Tech choices (the doc's open decisions)
 

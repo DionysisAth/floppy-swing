@@ -169,33 +169,34 @@ def freq(name):
     return 440.0 * 2 ** ((semis - 9) / 12 + (octave - 4))
 
 
-# Music: gentle and simple on purpose. Soft sine/triangle tones only (no
-# square waves), slow chords, a sparse music-box melody and very light
-# percussion, 16 bars so it doesn't loop too often. Notes that ring past the
-# end wrap round to the start, so the loop is seamless.
+# Music: lively but soft. Warm sine/triangle-style tones only (no square
+# waves), a bouncy bass, off-beat chord plucks, a marimba-like melody in
+# A / A' / B / A sections, a sparkle arpeggio in the B part and a gentle
+# groove (kick, soft clap on 2 and 4, quiet hats, a small fill every 4 bars).
+# 16 bars; notes that ring past the end wrap round, so the loop is seamless.
 
-MRATE = 16000  # Mellow tones don't need more, and it keeps the files small.
+MRATE = 22050
 
 SONGS = {
-    # World 1, Hills: sunny and relaxed.
-    'music.wav': dict(bpm=92, seed=1, drums='soft',
+    # World 1, Hills: sunny and bouncy.
+    'music.wav': dict(bpm=112, seed=11, groove='bounce',
                       chords=['C3 E3 G3', 'A2 C3 E3', 'F2 A2 C3', 'G2 B2 D3']),
-    # World 2, Factory: a gentle tick-tock.
-    'music_factory.wav': dict(bpm=88, seed=2, drums='tick',
+    # World 2, Factory: busy little machines, with woodblock ticks.
+    'music_factory.wav': dict(bpm=108, seed=12, groove='tick',
                               chords=['A2 C3 E3', 'F2 A2 C3', 'C3 E3 G3', 'G2 B2 D3']),
     # World 3, Glass City: bright and sparkly.
-    'music_city.wav': dict(bpm=98, seed=3, drums='soft',
+    'music_city.wav': dict(bpm=116, seed=13, groove='sparkle',
                            chords=['D3 F#3 A3', 'B2 D3 F#3', 'G2 B2 D3', 'A2 C#3 E3']),
-    # World 4, Sky Islands: floaty, no drums.
-    'music_sky.wav': dict(bpm=80, seed=4, drums=None,
+    # World 4, Sky Islands: floaty, half-time, still moving.
+    'music_sky.wav': dict(bpm=100, seed=14, groove='float',
                           chords=['F2 A2 C3', 'D2 F2 A2', 'A#1 D2 F2', 'C2 E2 G2']),
-    # World 5, Rocket Base: a little more drive, still calm.
-    'music_base.wav': dict(bpm=104, seed=5, drums='pulse',
+    # World 5, Rocket Base: driving four-on-the-floor.
+    'music_base.wav': dict(bpm=124, seed=15, groove='drive',
                            chords=['D2 F2 A2', 'A#1 D2 F2', 'F2 A2 C3', 'C2 E2 G2']),
 }
 
 
-def music(name, bpm, seed, drums, chords):
+def music(name, bpm, seed, groove, chords):
     beat = 60 / bpm
     bars = 16
     total = int(bars * 4 * beat * MRATE)
@@ -226,84 +227,133 @@ def music(name, bpm, seed, drums, chords):
             res.append(v * e)
         return res
 
-    def pluck(f, decay=0.45):
+    def pluck(f, decay=0.3, bright=0.25):
+        """Marimba-ish: sine plus a quickly fading 4th harmonic."""
         cnt = int(decay * 5 * MRATE)
-        return [(math.sin(2 * math.pi * f * i / MRATE) + 0.25 * math.sin(4 * math.pi * f * i / MRATE))
-                * math.exp(-i / MRATE / decay) * min(1, i / (MRATE * 0.004)) for i in range(cnt)]
+        res = []
+        for i in range(cnt):
+            t = i / MRATE
+            v = math.sin(2 * math.pi * f * t) + bright * math.sin(8 * math.pi * f * t) * math.exp(-t / 0.03)
+            res.append(v * math.exp(-t / decay) * min(1, t / 0.003))
+        return res
 
-    def thump(gain):
-        cnt = int(0.25 * MRATE)
+    def bass(f, dur):
+        cnt = int((dur + 0.08) * MRATE)
+        res = []
+        for i in range(cnt):
+            t = i / MRATE
+            e = math.exp(-t / (dur * 0.9)) * min(1, t / 0.006)
+            res.append((math.sin(2 * math.pi * f * t) + 0.3 * math.sin(4 * math.pi * f * t)) * e)
+        return res
+
+    def kick(gain):
+        cnt = int(0.28 * MRATE)
         res, phase = [], 0.0
         for i in range(cnt):
-            f = 55 + 60 * math.exp(-i / MRATE / 0.03)
+            f = 50 + 90 * math.exp(-i / MRATE / 0.035)
             phase += 2 * math.pi * f / MRATE
-            res.append(math.sin(phase) * math.exp(-i / MRATE / 0.09))
-        return [v * gain for v in res]
+            res.append(math.sin(phase) * math.exp(-i / MRATE / 0.1) * gain)
+        return res
 
-    def shaker(gain, length=0.06):
+    def noise(length, decay, smooth=0.5):
         cnt = int(length * MRATE)
         res, prev = [], 0.0
         for i in range(cnt):
-            prev = prev * 0.5 + r.uniform(-1, 1) * 0.5
-            res.append(prev * math.exp(-i / MRATE / 0.015) * gain)
-        # Soften the hiss: difference of neighbours removes the lows, then smooth.
-        return [0.5 * (res[i] + res[i - 1]) for i in range(len(res))]
+            prev = prev * smooth + r.uniform(-1, 1) * (1 - smooth)
+            res.append(prev * math.exp(-i / MRATE / decay))
+        return res
+
+    def clap(gain):
+        body = tone(190, 0.02, 0.001, 0.08)
+        hiss = noise(0.18, 0.05, 0.35)
+        n = max(len(body), len(hiss))
+        return [((body[i] * 0.5 if i < len(body) else 0) + (hiss[i] if i < len(hiss) else 0)) * gain for i in range(n)]
+
+    def hat(gain):
+        h = noise(0.05, 0.012, 0.1)
+        # High-pass by differencing, then a gentle smooth so it isn't hissy.
+        d = [h[i] - h[i - 1] for i in range(1, len(h))]
+        return [0.5 * (d[i] + d[i - 1]) * gain for i in range(1, len(d))]
+
+    def block(f, gain):
+        return [v * gain for v in tone(f, 0.01, 0.001, 0.05, ((1, 1.0), (2.7, 0.3)))]
 
     progression = [c.split() for c in chords]
-    # The melody walks the major pentatonic of the first chord's root.
     root = freq(progression[0][0][:-1] + '4')
-    penta = [root * 2 ** (k / 12) for k in (0, 2, 4, 7, 9, 12, 14, 16)]
+    penta = [root * 2 ** (k / 12) for k in (0, 2, 4, 7, 9, 12, 14, 16, 19, 21)]
 
-    # One 4-bar motif, then variations, so it feels composed but calm.
-    rhythms = [[0, 1, 2], [0, 1.5, 2, 3], [0, 2], [0, 1, 1.5, 2, 3], [0, 3]]
-    motif = []
-    idx = 3
-    for bar in range(4):
-        notes = []
-        for pos in r.choice(rhythms):
-            idx = max(0, min(len(penta) - 1, idx + r.choice([-2, -1, -1, 0, 1, 1, 2])))
-            notes.append((pos, idx))
-        motif.append(notes)
+    rhythms = [[0, 0.5, 1, 2, 2.5, 3], [0, 1, 1.5, 2, 3, 3.5], [0, 0.5, 1.5, 2, 3],
+               [0, 1, 2, 2.5, 3, 3.5], [0, 0.75, 1.5, 2, 3], [0, 0.5, 1, 1.5, 2, 3]]
+
+    def motif(start):
+        bars_ = []
+        idx = start
+        for _ in range(4):
+            notes = []
+            for pos in r.choice(rhythms):
+                idx = max(0, min(len(penta) - 1, idx + r.choice([-2, -1, -1, 1, 1, 2, 0])))
+                notes.append((pos, idx))
+            bars_.append(notes)
+        return bars_
+
+    a_part, b_part = motif(3), motif(5)
+    half = groove == 'float'
 
     for bar in range(bars):
         t0 = bar * 4 * beat
         chord = progression[bar % len(progression)]
-        # Warm pad: slow attack, long release, a touch of chorus.
+        section = 'B' if 8 <= bar < 12 else 'A'
+        # Soft pad underneath, quieter than before: the plucks carry it now.
         for note in chord:
-            add(t0, tone(freq(note) * 2, 4 * beat, 0.35, 1.2, ((1, 1.0), (2, 0.15)), detune=0.003), 0.045)
-        # Round sine bass on beats 1 and 3.
-        for b in (0, 2):
-            add(t0 + b * beat, tone(freq(chord[0]), 1.6 * beat, 0.02, 0.4, ((1, 1.0), (2, 0.1))), 0.16)
-        # Melody: the motif, varied in the second half, resting every 4th bar
-        # of the variation so it breathes.
-        phrase = motif[bar % 4]
-        if bar >= 8:
-            phrase = [(p, max(0, min(len(penta) - 1, i + (1 if bar % 2 else -1)))) for p, i in phrase]
-            if bar % 4 == 3:
-                phrase = phrase[:1]
+            add(t0, tone(freq(note) * 2, 4 * beat, 0.3, 1.0, ((1, 1.0), (2, 0.12)), detune=0.003), 0.025)
+        # Bouncy bass: root, octave hop, fifth.
+        b0 = freq(chord[0])
+        fifth = freq(chord[2])
+        pattern = ([(0, b0, 1.2), (2, fifth, 1.2)] if half else
+                   [(0, b0, 0.8), (1.5, b0 * 2, 0.35), (2, b0, 0.8), (3, fifth, 0.35), (3.5, b0 * 2, 0.35)])
+        for pos, f, dur in pattern:
+            add(t0 + pos * beat, bass(f, dur * beat), 0.2)
+        # Off-beat chord plucks (the "skank"), lighter in half-time.
+        for off in ((1, 3) if half else (0.5, 1.5, 2.5, 3.5)):
+            for note in chord:
+                add(t0 + off * beat, pluck(freq(note) * 4, decay=0.12, bright=0.1), 0.028)
+        # Melody.
+        phrase = (b_part if section == 'B' else a_part)[bar % 4]
+        if 4 <= bar < 8 and bar % 4 == 3:
+            phrase = [(p, min(len(penta) - 1, i + 1)) for p, i in phrase]  # A' answers higher.
         if bar == bars - 1:
-            phrase = [(0, 0)]
+            phrase = [(0, 0), (1, 2), (2, 0)]
         for pos, i in phrase:
-            add(t0 + pos * beat, pluck(penta[i]), 0.13)
-            add(t0 + pos * beat, pluck(penta[i] * 2, decay=0.25), 0.025)  # Music-box shimmer.
-        # Light percussion.
+            add(t0 + pos * beat, pluck(penta[i]), 0.12)
+            add(t0 + pos * beat, pluck(penta[i] * 2, decay=0.15, bright=0.0), 0.02)
+        # Sparkle arpeggio in the B part (and all through Glass City).
+        if section == 'B' or groove == 'sparkle':
+            tones = [freq(n) * 8 for n in chord] + [freq(chord[0]) * 16]
+            for k in range(8):
+                add(t0 + k * beat / 2, pluck(tones[k % len(tones)], decay=0.09, bright=0.0), 0.018)
+        # Groove.
+        fill = bar % 4 == 3
         for b in range(4):
             t = t0 + b * beat
-            if drums == 'soft':
-                if b in (0, 2):
-                    add(t, thump(1), 0.22)
-                add(t + beat / 2, shaker(1), 0.035)
-            elif drums == 'tick':
-                if b in (0, 2):
-                    add(t, thump(1), 0.2)
-                add(t, tone(2200, 0.01, 0.001, 0.03), 0.018)
-                add(t + beat / 2, tone(1650, 0.01, 0.001, 0.03), 0.012)
-            elif drums == 'pulse':
-                add(t, thump(1), 0.2 if b % 2 == 0 else 0.12)
-                add(t + beat / 2, shaker(1), 0.03)
+            if groove == 'drive':
+                add(t, kick(1), 0.3)
+            elif groove == 'float':
+                if b == 0:
+                    add(t, kick(1), 0.22)
+            elif b in (0, 2) or (b == 3 and groove == 'bounce' and bar % 2):
+                add(t if b != 3 else t + beat / 2, kick(1), 0.28)
+            if b in (1, 3) and not (half and b == 1):
+                add(t, clap(1), 0.09 if not half else 0.07)
+            for h in (0, 0.5):
+                add(t + h * beat, hat(1), 0.05 if h else 0.03)
+            if groove == 'tick':
+                add(t + 0.75 * beat, block(1200 if b % 2 else 900, 1), 0.05)
+        if fill and not half:
+            for k in range(4):
+                add(t0 + 3 * beat + k * beat / 4, clap(1), 0.035 + 0.012 * k)
 
     peak = max(1e-9, max(abs(v) for v in out))
-    scale_to = 0.55 / peak
+    scale_to = 0.6 / peak
     with wave.open(os.path.join(OUT, name), 'wb') as w:
         w.setnchannels(1)
         w.setsampwidth(2)
