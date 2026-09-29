@@ -18,7 +18,8 @@ need no server of your own. See `docs/NEXT_STEPS.md` for what's left and
 
 ## What's in the game
 
-- **Slingshot start:** the first grab from the ground flings the character straight into a full-speed swing, and slow swings get extra pump until they're moving.
+- **Slingshot start:** the first grab of a run (even if you press before the character has landed) and any grab from the ground fling the character straight into a full-speed swing, and slow swings get extra pump until they're moving.
+- **Flowing swings:** a press picks the next ring ahead rather than one you've already flown past, and grabbing a ring right next to you gives a slack rope, so you swoop down under it into a full swing instead of whipping round it.
 - **Themed worlds:** each world has its own backdrop (hills, factory skyline, city, floating islands, rocket base), its own soundtrack, and a sky that drifts across its 20 levels (e.g. morning to sunset, day to night). Plus a motion trail, speed lines, dust puffs and screen shake.
 - **One-touch controls:** hold to grab the nearest ring in range (it glows), release to let go.
 - **Floppy 2D ragdoll**, 10 parts on limited revolute joints, with a rope (max-length joint) on the front hand.
@@ -110,6 +111,7 @@ tool/
   icon/               Renders the app icon and splash logo from the game
   screenshots/        Captures and frames store screenshots
   check_levels.dart   Proves every level is beatable (and can auto-place coins)
+  swing_feel.dart     Measures how swinging feels to a human-like player
   gen_levels.dart     Generates levels 16-100 from a seed per level
   death_map.dart      Shows where the bot dies on a level
   gen_audio.py        Synthesises all sounds and music
@@ -137,11 +139,18 @@ restart picks up changes.
 After changing physics or levels, re-verify the levels:
 
 ```bash
+dart run tool/swing_feel.dart              # how swings feel to a human-like player
+dart run tool/check_levels.dart --fix      # make sure every level (and daily) can still
+                                           # be three-starred, touching as little as possible
 dart run tool/check_levels.dart            # search + write test/level_solutions.json
 dart run tool/check_levels.dart --balance  # also re-place coins along a proven path
                                            # and reset each level's target time
 flutter test test/levels_test.dart
 ```
+
+`--fix` keeps each level's layout. It keeps the stored bot settings if they
+still collect every coin inside the target time, else looks for new ones,
+and only re-places a level's coins and target time when nothing else works.
 
 Levels 16–100 come from `tool/gen_levels.dart`. It builds each level from
 segments (gaps, saw corridors, glass walls, wind shafts, rocket gaps...) seeded

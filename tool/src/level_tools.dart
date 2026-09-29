@@ -83,6 +83,49 @@ Future<LevelCheck> checkLevel(
   });
 }
 
+/// Whether [run] earns all three stars on [level]: finished, every coin, and
+/// inside the target time (and under a minute, see test/levels_test.dart).
+bool threeStars(Level level, AutopilotRun run) =>
+    run.finished && run.coins == level.coins.length && run.time <= level.targetTime && run.time < 60;
+
+/// Outcome of [fixLevel].
+class LevelFix {
+  LevelFix(this.params, {this.json, this.note = ''});
+
+  /// Settings that earn three stars, or null if the level can't be finished.
+  final AutopilotParams? params;
+
+  /// The rebalanced level, when its coins and target time had to be redone.
+  final Map<String, dynamic>? json;
+  final String note;
+}
+
+/// Makes sure [json] can still be three-starred, changing as little as
+/// possible: keeps [stored] settings if they still work, else searches for
+/// others that collect the existing coins in time, else re-places the coins
+/// and target time along the fastest run (one that uses the world's
+/// mechanic, like `gen_levels.dart`). Runs in a separate isolate.
+Future<LevelFix> fixLevel(Map<String, dynamic> json, PhysicsConfig cfg, Map<String, dynamic>? stored) {
+  final encoded = jsonEncode(json);
+  return Isolate.run(() {
+    final level = Level.parse(encoded);
+    AutopilotRun run(AutopilotParams p) => runAutopilot(level, () => Simulation(level, cfg), p);
+    if (stored != null && threeStars(level, run(paramsFrom(stored)))) return LevelFix(paramsFrom(stored), note: 'kept');
+    AutopilotRun? fastest, fastestAny;
+    for (final p in autopilotSearchSpace()) {
+      final r = run(p);
+      if (threeStars(level, r)) return LevelFix(p, note: 'new settings');
+      if (!r.finished) continue;
+      if (fastestAny == null || r.time < fastestAny.time) fastestAny = r;
+      if (engagesMechanic(level, r.events) && (fastest == null || r.time < fastest.time)) fastest = r;
+    }
+    final best = fastest ?? fastestAny;
+    if (best == null) return LevelFix(null, note: 'unbeatable');
+    final balanced = balanceLevel(json, cfg, best.params);
+    return LevelFix(best.params, json: balanced, note: 'rebalanced coins, target ${balanced['targetTime']}');
+  });
+}
+
 /// Runs [tasks] with at most [parallel] at a time.
 Future<List<T>> pooled<T>(List<Future<T> Function()> tasks, {int parallel = 4}) async {
   final results = List<T?>.filled(tasks.length, null);

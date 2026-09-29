@@ -329,6 +329,9 @@ class Simulation {
   double _ropeTarget = 0;
   bool _holding = false;
 
+  /// The first press of a run slingshots even in mid-air (see [_tryAttach]).
+  bool _launchPending = false;
+
   /// Rope was slack (or just attached) going into this step, so it may snap
   /// tight during it; see [_conserveSnapMomentum].
   bool _ropeMaySnap = false;
@@ -374,12 +377,14 @@ class Simulation {
   void press() {
     _holding = true;
     if (status != SimStatus.running) return;
+    if (startedAt == null) _launchPending = true;
     startedAt ??= t;
     _tryAttach();
   }
 
   void release() {
     _holding = false;
+    _launchPending = false;
     if (_rope == null) return;
     _detach(boost: status == SimStatus.running);
   }
@@ -471,6 +476,7 @@ class Simulation {
     final fwd = speed > 2
         ? vel / speed
         : Vector2((level.finish.x - pos.x).sign.toDouble(), -0.3).normalized();
+    final travel = vel.x.abs() > 2 ? vel.x.sign : 0.0;
     var best = -1;
     var bestScore = double.infinity;
     for (var i = 0; i < level.anchors.length; i++) {
@@ -480,6 +486,9 @@ class Simulation {
       if (dist > cfg.ropeRange || dist < 0.3) continue;
       var score = dist - cfg.anchorForwardBias * (dx * fwd.x + dy * fwd.y);
       if (dy > 0) score += cfg.anchorBelowPenalty * dy;
+      // Rings already flown past only swing you back or up round them.
+      final behind = -dx * travel;
+      if (behind > 0) score += cfg.anchorBehindPenalty * behind;
       if (score < bestScore && _lineOfSight(pos, Vector2(a.x, a.y))) {
         bestScore = score;
         best = i;
@@ -502,7 +511,14 @@ class Simulation {
     final anchor = Vector2(a.x, a.y);
     final moving = _anchorBodies[idx];
     final dist = (ragdoll.handWorld - anchor).length;
-    final len = dist.clamp(cfg.ropeMinLength, cfg.ropeRange + 1.0);
+    // The first grab of a run always slingshots, even if pressed before the
+    // character has landed on the start platform (or a revive spot).
+    final launch = _touching > 0 || _launchPending;
+    _launchPending = false;
+    // In the air, a ring right next to you gets a longer, slack rope: you
+    // swoop down under it into a proper swing.
+    final swingLen = launch ? cfg.ropeMinLength : math.max(cfg.ropeMinLength, cfg.ropeSwingLength);
+    final len = math.max(dist, swingLen).clamp(cfg.ropeMinLength, cfg.ropeRange + 1.0);
     final def = RopeJointDef()
       ..bodyA = moving ?? _anchorBody
       ..bodyB = ragdoll.hand
@@ -513,12 +529,12 @@ class Simulation {
     world.createJoint(joint);
     _rope = joint;
     _ropeAnchor = idx;
-    _ropeTarget = math.max(cfg.ropeMinLength, dist * cfg.ropeReelFactor);
+    _ropeTarget = math.max(swingLen, dist * cfg.ropeReelFactor);
     _swingSweep = 0;
     _bigSwingAwarded = false;
     _ropeMaySnap = true;
     _lastSwingAngle = _swingAngle();
-    if (_touching > 0) {
+    if (launch) {
       // Slingshot: fling the character forward and up into a full swing.
       final torso = ragdoll.torso.position;
       final toAnchor = (anchor - torso)..normalize();

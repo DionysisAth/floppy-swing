@@ -24,6 +24,7 @@ class PhysicsConfig {
     this.ropeSnapKeep = 0.85,
     this.ropeSnapMaxSpeed = 18.0,
     this.ropeSlackTakeUp = 14.0,
+    this.ropeSwingLength = 0.0,
     this.glassBreakSpeed = 7.0,
     this.crumbleDelay = 0.7,
     this.rocketKnock = 13.0,
@@ -31,6 +32,7 @@ class PhysicsConfig {
     this.assistBelowSpeed = 8.0,
     this.anchorForwardBias = 0.45,
     this.anchorBelowPenalty = 0.6,
+    this.anchorBehindPenalty = 0.0,
     this.bodyDensity = 1.0,
     this.limbDensity = 2.2,
     this.jointFloppiness = 0.4,
@@ -64,6 +66,7 @@ class PhysicsConfig {
     ropeSnapKeep: _d(m, 'ropeSnapKeep', 0.85),
     ropeSnapMaxSpeed: _d(m, 'ropeSnapMaxSpeed', 18.0),
     ropeSlackTakeUp: _d(m, 'ropeSlackTakeUp', 14.0),
+    ropeSwingLength: _d(m, 'ropeSwingLength', 0.0),
     glassBreakSpeed: _d(m, 'glassBreakSpeed', 7.0),
     crumbleDelay: _d(m, 'crumbleDelay', 0.7),
     rocketKnock: _d(m, 'rocketKnock', 13.0),
@@ -71,6 +74,7 @@ class PhysicsConfig {
     assistBelowSpeed: _d(m, 'assistBelowSpeed', 8.0),
     anchorForwardBias: _d(m, 'anchorForwardBias', 0.45),
     anchorBelowPenalty: _d(m, 'anchorBelowPenalty', 0.6),
+    anchorBehindPenalty: _d(m, 'anchorBehindPenalty', 0.0),
     bodyDensity: _d(m, 'bodyDensity', 1.0),
     limbDensity: _d(m, 'limbDensity', 2.2),
     jointFloppiness: _d(m, 'jointFloppiness', 0.4),
@@ -146,6 +150,11 @@ class PhysicsConfig {
   /// before it catches is short.
   final double ropeSlackTakeUp;
 
+  /// Shortest rope a grab in mid-air gets. Grabbing a ring you're right next
+  /// to leaves the rope slack, so you swoop down under the ring into a full
+  /// swing instead of whipping round it on a tiny, jerky circle.
+  final double ropeSwingLength;
+
   /// Glass panes shatter when hit at least this fast (m/s); slower hits
   /// just bonk off.
   final double glassBreakSpeed;
@@ -164,6 +173,11 @@ class PhysicsConfig {
 
   /// How strongly anchor picking avoids anchors below the character.
   final double anchorBelowPenalty;
+
+  /// While moving, how strongly anchor picking avoids anchors you've already
+  /// flown past (per metre behind you along your direction of travel), so a
+  /// press swings on to the next ring instead of back round the last one.
+  final double anchorBehindPenalty;
 
   /// Density of torso and head.
   final double bodyDensity;

@@ -408,7 +408,7 @@ class GameController extends ChangeNotifier {
       // Don't chase the body into the pit.
       tx = cam.x + (tx - cam.x) * 0.3;
     }
-    final kp = 1 - math.exp(-5 * dt), kz = 1 - math.exp(-1.5 * dt);
+    final kp = 1 - math.exp(-5 * dt), kz = 1 - math.exp(-2.5 * dt);
     cam = Cam(cam.x + (tx - cam.x) * kp, cam.y + (ty - cam.y) * kp, cam.w + (tw - cam.w) * kz);
   }
 

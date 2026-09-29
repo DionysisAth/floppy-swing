@@ -78,6 +78,38 @@ void main() {
     expect(sim.ragdoll.velocity.x, greaterThan(0));
   });
 
+  test('pressing before landing on the start platform still slingshots', () {
+    final sim = Simulation(testLevel(), cfg);
+    sim.step(); // Still dropping in.
+    sim.press();
+    expect(sim.events.map((e) => e.kind), contains(EventKind.launch));
+    stepFor(sim, 0.1);
+    expect(sim.ragdoll.velocity.length, greaterThan(9));
+  });
+
+  test('a press after flying past a ring swings on to the next one', () {
+    final level = Level.parse('''{"id": 1, "name": "x", "targetTime": 9, "start": [0, 0], "killY": 30,
+      "finish": [80, -3, 4, 7], "platforms": [], "anchors": [[10, -8], [17, -8]]}''');
+    // Just past the first ring, flying on towards the second.
+    final sim = Simulation(level, cfg, spawn: const P(11, -5.5));
+    sim.ragdoll.setVelocity(Vector2(8, -1));
+    sim.startedAt = 0;
+    expect(sim.bestAnchor(), 1);
+  });
+
+  test('grabbing a ring right next to you swoops into a full swing', () {
+    final level = Level.parse('''{"id": 1, "name": "x", "targetTime": 9, "start": [0, 0], "killY": 30,
+      "finish": [80, -3, 4, 7], "platforms": [], "anchors": [[10, -8]]}''');
+    final sim = Simulation(level, cfg, spawn: const P(9, -7));
+    sim.ragdoll.setVelocity(Vector2(7, 0));
+    sim.startedAt = 0;
+    sim.press();
+    expect(sim.isAttached, isTrue);
+    sim.step();
+    // Not a 1.5 m whip round the ring.
+    expect(sim.snapshot.ropeLength, greaterThan(3));
+  });
+
   test('a slack rope snapping tight keeps its momentum as swing speed', () {
     final level = Level.parse('''{"id": 1, "name": "x", "targetTime": 9, "start": [0, 0], "killY": 30,
       "finish": [80, -3, 4, 7], "platforms": [], "anchors": [[10, -8]]}''');
