@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../app.dart';
+import '../services/links.dart';
 import '../game/course_builder.dart';
 import '../game/floppy_game.dart';
 import '../game/game_controller.dart';
@@ -160,6 +161,7 @@ class _GameScreenState extends State<GameScreen> {
         }
         if (_daily) {
           _modeReward = _services.progress.recordDaily(widget.day, r);
+          unawaited(_services.reminders?.dailyCleared());
           _services.analytics.dailyComplete(widget.day, r.time);
           unawaited(_submitScore(() => _games.submitDaily(r.time)));
         } else {
@@ -217,7 +219,8 @@ class _GameScreenState extends State<GameScreen> {
       ShareParams(
         text:
             'I swung ${r?.distance ?? 0} m in Floppy Swing Endless. Can you beat me? '
-            'Tap "Challenge code" in the menu and enter ${widget.seed}',
+            '${challengeLink(widget.seed)}\n'
+            '(Or tap "Challenge code" in the menu and enter ${widget.seed}.)',
       ),
     );
   }

@@ -5,9 +5,12 @@ import 'package:floppy_swing/services/analytics.dart';
 import 'package:floppy_swing/services/audio_service.dart';
 import 'package:floppy_swing/services/games_service.dart';
 import 'package:floppy_swing/services/progress.dart';
+import 'package:floppy_swing/services/purchase_service.dart';
 import 'package:floppy_swing/ui/game_screen.dart';
 import 'package:floppy_swing/ui/level_select_screen.dart';
+import 'package:floppy_swing/game/store_products.dart';
 import 'package:floppy_swing/ui/shop_screen.dart';
+import 'package:floppy_swing/ui/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,6 +47,7 @@ void main() {
           ads: NoAdsService(),
           analytics: const Analytics(),
           games: GamesService.disabled(progress),
+          purchases: NoPurchaseService(progress, instant: true),
           child: child,
         ),
       ),
@@ -113,5 +117,17 @@ void main() {
     expect(find.byType(ShopScreen), findsOneWidget);
     expect(find.text('EQUIPPED'), findsOneWidget);
     expect(find.text('Rubber Chicken'), findsOneWidget);
+
+    // Tapping the gem counter opens the gem store (the test store grants
+    // instantly).
+    await tester.tap(find.byType(GemBadge).first);
+    await frames(tester, 25);
+    expect(find.text('Starter Pack'), findsOneWidget);
+    final gemsBefore = progress.gems;
+    await tester.tap(find.text(starterPack.fallbackPrice).first);
+    await frames(tester, 10);
+    expect(progress.gems, gemsBefore + starterPack.gems);
+    expect(find.text('Starter Pack'), findsNothing, reason: 'once only');
+    expect(find.textContaining('Thanks'), findsOneWidget);
   });
 }

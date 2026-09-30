@@ -9,11 +9,11 @@ shared as vertical clips.
 |---|---|---|---|---|---|
 | ![](docs/screenshots/1_menu.png) | ![](docs/screenshots/2_levels.png) | ![](docs/screenshots/4_swinging.png) | ![](docs/screenshots/7_replay.png) | ![](docs/screenshots/9_won.png) | ![](docs/screenshots/6_shop.png) |
 
-This covers the whole design document except real-money purchases and real
-ad accounts: the MVP, Worlds 2–5, Endless mode, the Daily Challenge, the
-economy and cosmetics, and the online features (leaderboards, achievements,
-cloud save) through Google Play Games and Game Center, which are free and
-need no server of your own. See `docs/NEXT_STEPS.md` for what's left and
+This covers the whole design document: the MVP, Worlds 2–5, Endless mode,
+the Daily Challenge, the economy and cosmetics, in-app purchases, ads, and
+the online features (leaderboards, achievements, cloud save) through Google
+Play Games and Game Center, which are free and need no server of your own.
+What's left needs your store and AdMob accounts. See `docs/NEXT_STEPS.md` for what's left and
 `docs/RELEASING.md` for getting it into the stores.
 
 ## What's in the game
@@ -39,15 +39,17 @@ need no server of your own. See `docs/NEXT_STEPS.md` for what's left and
 - **Stars** (finish, target time, all coins), **coins**, and **style points** (flips, close calls, hang time, big swings, combos).
 - **Shop:** 6 skins (1 free, 5 for coins, each with its own fail sound), plus rope styles (chain, spaghetti, rainbow, laser), trails (sparkles, bubbles, fire), fail effects (squeaky toy, confetti, a jackpot of coins) and victory dances (backflip, tornado, wacky flail), all with live previews. Everything is cosmetic.
 - **Collections:** own every item in a set (e.g. all ropes) to claim a gem bonus.
-- **Gems:** the premium currency, earned for now from the daily bonus, daily challenges, collections and the Season Pass. They buy premium cosmetics, revives, the premium pass, and level skips.
+- **Gems:** the premium currency, earned from the daily bonus, daily challenges, collections and the Season Pass, or bought. They buy premium cosmetics, revives, the premium pass, and level skips.
+- **In-app purchases** (Google Play Billing / StoreKit, no server): gem packs, a once-only Starter Pack, No Ads, and the Premium Pass for money, in the shop's Gems tab (tap your gems anywhere in the shop to get there), with Restore purchases. Each store transaction is paid out once, and what was bought survives a progress reset and syncs through the cloud save.
 - **Daily bonus:** a 7-day login calendar with coins and gems; missing a day restarts it.
 - **Season Pass:** 7-week themed seasons (Pirate Plunder, Robo Rumble, Dino Days, Wizard Weeks) with 20 tiers of XP from finishing levels, dailies, Endless runs and logging in. The free track has coins, gems and an exclusive trail; the premium track (250 gems for now) has more, topped by an exclusive skin.
 - **Ghost:** your best run on each level and daily is saved and replayed as a see-through ghost to race.
 - **Google Play Games / Game Center** (free, hosted by Google and Apple, no server of our own): automatic sign-in; Daily Challenge (best time today) and Endless leaderboards in the platform's own UI, which also has friends and weekly/all-time tabs, with your rank after each run; 12 achievements; and cloud save (the progress is stored as a saved game and merged in on sign-in, so a new phone picks up where you left off). Switched on per platform in `lib/services/games_ids.dart`; see `docs/GAMES_SERVICES.md`. The game is fully playable without it.
-- **Endless challenge codes:** share your course's code; a friend enters it from the menu to play the same course.
+- **Endless challenge links:** share your course as a `floppyswing://challenge/<code>` link that opens the game on the same course, or a friend pastes the message or code into "Challenge code" in the menu.
+- **Daily Challenge reminders:** local notifications (no server) at 6 pm for the next few days, skipped once today's challenge is done. Permission is only asked after your first daily clear; switch them off in Settings.
 - **Golden Flop:** an exclusive skin for collecting all 300 stars.
 - **Level skip:** after 5 attempts at a campaign level you can skip it for gems. It unlocks the next level but earns no stars.
-- **Ads:** rewarded videos to revive at a checkpoint and to double coins. Interstitials only show when leaving a won level, at most every 3 wins and 2 minutes, never before level 8, and never after a fail. A "remove ads" flag is ready for when purchases exist.
+- **Ads:** rewarded videos to revive at a checkpoint and to double coins. Interstitials only show when leaving a won level, at most every 3 wins and 2 minutes, never before level 8, and never after a fail. The No Ads purchase turns interstitials off. AdMob ids are in `assets/config/admob.json`; test builds always show Google's test ads (see `docs/RELEASING.md`).
 - Menu with an attract-mode demo (the autopilot plays level 1), world and level select, shop, Season Pass, settings (music and SFX volume, mute, vibration, privacy options, reset).
 - Generated sound effects and an upbeat but soft music loop per world (bouncy bass, off-beat plucks, a light groove; `tool/gen_audio.py`), plus haptics.
 
@@ -91,11 +93,13 @@ lib/
     skins.dart        Skin catalogue
     floppy_game.dart  Thin Flame wrapper
   services/        Progress/save, audio+haptics, ads (UMP consent), clip export, analytics,
-                   games_service + games_ids (Play Games / Game Center)
+                   games_service + games_ids (Play Games / Game Center),
+                   purchase_service (in-app purchases), reminders, links
   ui/              Screens and widgets
 assets/
   config/physics.json   <- tune the feel here
   config/economy.json
+  config/admob.json     <- your AdMob ids
   levels/level_XXX.json  1-15 hand-made, 16-100 generated
   daily/daily_XXX.json   Daily Challenge pool
   audio/, fonts/
@@ -218,7 +222,8 @@ All prices and rewards (coins, gems, login calendar, ad pacing) are in
 `assets/config/economy.json`; cosmetic prices are in
 `lib/game/cosmetics.dart` and Season Pass rewards in `lib/game/season.dart`.
 
-## Not built (by choice)
+## What's left
 
-Real-money purchases (gem packs, Starter Pack, "Remove ads", buying the
-premium pass with money) and real ad accounts. See `docs/NEXT_STEPS.md`.
+Account setup only: AdMob ids, store products, Play Games / Game Center ids,
+signing and the store listings. See `docs/NEXT_STEPS.md` and
+`docs/RELEASING.md`.

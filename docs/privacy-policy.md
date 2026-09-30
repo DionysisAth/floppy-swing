@@ -34,6 +34,21 @@ asks for permission before tracking. You can change your choice at any time
 in Settings > Privacy options. See Google's policy:
 https://policies.google.com/technologies/ads
 
+## Purchases
+
+Optional in-app purchases (gem packs, the Starter Pack, No Ads, the Premium
+Pass) are handled entirely by **Google Play** or the **App Store**. We never
+see your payment details. The game only receives a confirmation and a
+transaction number from the store, which it keeps on your device (and in your
+cloud save) so a purchase is never paid out twice and can be restored.
+
+## Notifications
+
+If you allow notifications, the game schedules **Daily Challenge reminders**
+on your device (at most one a day, for the next few days). They are created
+on the device; no server sends them and nothing is collected. Turn them off in
+Settings or in your phone's notification settings.
+
 ## Deleting your data
 
 Settings > Reset progress wipes the progress on your device, and uninstalling

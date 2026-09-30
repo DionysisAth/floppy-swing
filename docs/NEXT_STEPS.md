@@ -1,8 +1,7 @@
 # Floppy Swing: what's left, and how to pick up
 
-A handoff for the next work session: what from the original design document
-(`floppy-swing-design.md`) isn't built, known loose ends, and how to get
-productive in this repo quickly.
+A handoff for the next work session: what's built, what's left (mostly
+account setup), and how to get productive in this repo quickly.
 
 **State:** branch `claude/loving-fermat-muip8y`. Every push makes a
 `test-build-N` release (APK + unsigned IPA).
@@ -28,36 +27,41 @@ productive in this repo quickly.
 - **Launch prep:** app icon and splash, Android release signing via
   `key.properties` or CI secrets (plus an `.aab`), tablet layouts, store
   listing draft, privacy policy draft, store screenshots, release guide.
+- **Money:** in-app purchases with no server (gem packs, Starter Pack,
+  No Ads, Premium Pass for money, restore; `purchase_service.dart`,
+  `store_products.dart`), and real ads from one config file
+  (`assets/config/admob.json`; test builds always serve test ads, the store
+  bundle real ones).
+- **Retention:** Daily Challenge reminder notifications (local, no server)
+  and `floppyswing://challenge/<code>` links for Endless challenges.
 
-## Not built yet
-
-### Left out on purpose (the owner asked to skip these)
-
-1. **Real-money purchases** (design doc §10.2–10.4): gem packs, Starter Pack,
-   "Remove ads" (the flag `ProgressStore.adsRemoved` already switches off
-   interstitials), premium Season Pass for money (it's 250 gems now,
-   `Season.premiumGems`), restore purchases. Use the `in_app_purchase`
-   plugin with a `PurchaseService` next to `ads_service.dart` (on-device
-   receipt checks; there is no server).
-2. **Real ads:** replace AdMob test ids (see `docs/RELEASING.md`), and add
-   mediation networks in AdMob.
+## What's left
 
 ### Needs the owner's accounts (not code)
 
+Step by step in `docs/RELEASING.md`:
+
+- **AdMob:** create the apps and ad units, paste the ids into
+  `assets/config/admob.json`, run `dart run tool/sync_admob.dart`, set up the
+  GDPR and IDFA messages, publish `app-ads.txt`.
+- **In-app products:** create the 7 products (ids in `docs/store/listing.md`)
+  in Play Console and App Store Connect; payments profile / Paid Apps
+  agreement, banking and tax.
 - **Play Games / Game Center setup** (`docs/GAMES_SERVICES.md`): create the
   leaderboards and achievements in the consoles, paste the ids into
   `lib/services/games_ids.dart` and `res/values/games-ids.xml`, set
   `enabled: true`. Until then the buttons are hidden.
 - **Store submissions:**
   - Play Console / App Store Connect apps and TestFlight;
-  - upload key secrets;
-  - fill in the brackets in `docs/privacy-policy.md` and host it;
+  - upload key secrets (then CI attaches a signed `.aab` with real ads);
+  - fill in the brackets in `docs/privacy-policy.md` and host it (GitHub
+    Pages: Settings > Pages > deploy from branch, folder `/docs`, gives
+    `https://<user>.github.io/<repo>/privacy-policy`);
   - Data safety / App Privacy forms.
 - **Real-device testing:** the 60 FPS target on mid-range phones, the "fun for
-  10 minutes" test, and real players' level times (the bot finishes levels in
-  3–27 s; the doc wants 20–60 s for people). Plug a free analytics SDK
-  (e.g. Firebase Analytics) into `Analytics.sink` to see level completion
-  rates after a soft launch.
+  10 minutes" test, and real players' level times. Plug a free analytics SDK
+  (e.g. Firebase Analytics, which needs your Firebase project's config files)
+  into `Analytics.sink` to see level completion rates after a soft launch.
 
 ### Possible improvements
 
@@ -69,15 +73,18 @@ productive in this repo quickly.
 - **Remote seasons and events** (new Season Pass themes without an app
   update): the calendar is fixed in `lib/game/season.dart` today. Firebase
   Remote Config (free) could drive it.
-- **Local notifications** (daily challenge reminder), no server needed.
-- **Deep links** for challenge codes (they're typed in today).
+- **https challenge links** that open the app from any messenger (custom
+  `floppyswing://` links aren't clickable everywhere): needs a website for
+  Android App Links (`assetlinks.json`) and iOS Universal Links
+  (`apple-app-site-association`).
+- **Ad mediation** in AdMob for higher fill and eCPM (adapter plugins).
+- **Server-side receipt checks** if cheating on purchases ever matters.
 
 ## How to pick up in a new session
 
 - **Read first:** `README.md`, this file, `docs/RELEASING.md`,
   `docs/GAMES_SERVICES.md`.
-- **Flutter:** 3.47.5. In the cloud container it is at `/opt/sdk/flutter`
-  (`export PATH=/opt/sdk/flutter/bin:$PATH`).
+- **Flutter:** 3.47.5 (install it in the cloud container if it's missing).
 - **Checks before every push:**
   - `flutter analyze` (clean);
   - `flutter test` (~20 s). Includes every level's bot replay.

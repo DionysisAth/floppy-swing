@@ -7,6 +7,8 @@ import 'services/analytics.dart';
 import 'services/audio_service.dart';
 import 'services/games_service.dart';
 import 'services/progress.dart';
+import 'services/purchase_service.dart';
+import 'services/reminders.dart';
 import 'ui/menu_screen.dart';
 import 'ui/theme.dart';
 
@@ -47,6 +49,9 @@ class AppServices extends InheritedWidget {
     required this.ads,
     required this.analytics,
     required this.games,
+    required this.purchases,
+    this.reminders,
+    this.challenges,
     required super.child,
   });
 
@@ -63,6 +68,15 @@ class AppServices extends InheritedWidget {
 
   /// Google Play Games / Game Center: leaderboards, achievements, cloud save.
   final GamesService games;
+
+  /// Real-money store: gem packs, Starter Pack, No Ads, Premium Pass.
+  final PurchaseService purchases;
+
+  /// Daily Challenge reminders (null where notifications aren't supported).
+  final ReminderService? reminders;
+
+  /// Course codes from opened challenge links (see `links.dart`).
+  final Stream<int>? challenges;
 
   static AppServices of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppServices>()!;

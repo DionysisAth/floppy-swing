@@ -64,6 +64,13 @@ class SettingsScreen extends StatelessWidget {
                       onChanged: progress.setHaptics,
                       title: Text('Vibration', style: body(18, weight: 600)),
                     ),
+                    if (services.reminders case final reminders?)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: progress.reminders && progress.remindersAsked,
+                        onChanged: reminders.setEnabled,
+                        title: Text('Daily Challenge reminders', style: body(18, weight: 600)),
+                      ),
                   ],
                 ),
               ),

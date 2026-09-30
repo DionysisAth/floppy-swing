@@ -15,6 +15,15 @@ val keyProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
+// AdMob app id from assets/config/admob.json (Google's test id while it's
+// empty). The ad unit ids in the same file are read by the Dart code.
+val admobAppId: String = run {
+    val json = rootProject.file("../assets/config/admob.json").readText()
+    val android = Regex("\"android\"\\s*:\\s*\\{([^}]*)\\}").find(json)?.groupValues?.get(1).orEmpty()
+    Regex("\"appId\"\\s*:\\s*\"([^\"]*)\"").find(android)?.groupValues?.get(1)?.trim().orEmpty()
+        .ifEmpty { "ca-app-pub-3940256099942544~3347511713" }
+}
+
 android {
     namespace = "com.floppyswing.floppy_swing"
     compileSdk = flutter.compileSdkVersion
@@ -23,6 +32,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications needs java.time on old Androids.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -37,6 +48,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["admobAppId"] = admobAppId
     }
 
     signingConfigs {
@@ -75,4 +87,5 @@ dependencies {
     // Same version as the games_services plugin uses; needed here because
     // MainActivity starts the Play Games SDK itself (see AndroidManifest.xml).
     implementation("com.google.android.gms:play-services-games-v2:21.0.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

@@ -59,11 +59,14 @@ jobs:
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
           PROPS
-      - run: flutter build apk --release
+      # Every CI build gets a higher build number, as the stores require.
+      - run: flutter build apk --release --build-number=${{ github.run_number }}
       - name: Play Store bundle
         if: env.HAS_UPLOAD_KEY == 'true'
         run: |
-          flutter build appbundle --release
+          # The store bundle serves real ads (ids in assets/config/admob.json);
+          # the test APK keeps Google's test ads.
+          flutter build appbundle --release --dart-define=REAL_ADS=true --build-number=${{ github.run_number }}
           cp build/app/outputs/bundle/release/app-release.aab FloppySwing.aab
       - run: cp build/app/outputs/flutter-apk/app-release.apk FloppySwing.apk
       # Play Games must not start itself at launch (it's started on demand
@@ -126,7 +129,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build ios --release --no-codesign
+      - run: dart run tool/sync_admob.dart
+      - run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
       - name: Package unsigned IPA
         run: |
           mkdir -p Payload

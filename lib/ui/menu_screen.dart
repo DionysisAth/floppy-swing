@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../services/links.dart';
 import '../game/autopilot.dart';
 import '../game/floppy_game.dart';
 import '../game/game_controller.dart';
@@ -34,6 +36,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
     duration: const Duration(milliseconds: 2400),
   )..repeat();
   GamePhase _lastPhase = GamePhase.ready;
+  StreamSubscription<int>? _links;
 
   @override
   void didChangeDependencies() {
@@ -51,6 +54,12 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
           ..autopilot = Autopilot(const AutopilotParams(releaseAngle: 0.35, regrabDelay: 0.15, minFallSpeed: -2))
           ..addListener(_onDemo);
     _game = FloppyGame(_demo!, dim: 0.2);
+    // A challenge link opens the friend's Endless course from anywhere.
+    _links = services.challenges?.listen((seed) {
+      if (!mounted) return;
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      _open(GameScreen.endless(seed: seed));
+    });
     services.audio.startMusic();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) await showLoginReward(context);
@@ -90,6 +99,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    _links?.cancel();
     _wobble.dispose();
     _demo?.dispose();
     super.dispose();
@@ -395,7 +405,7 @@ class _ChallengeCodeDialogState extends State<ChallengeCodeDialog> {
   }
 
   void _play() {
-    final seed = int.tryParse(_code.text.trim());
+    final seed = challengeSeedFromText(_code.text);
     if (seed != null) Navigator.pop(context, seed);
   }
 
@@ -405,8 +415,7 @@ class _ChallengeCodeDialogState extends State<ChallengeCodeDialog> {
     content: TextField(
       controller: _code,
       autofocus: true,
-      keyboardType: TextInputType.number,
-      decoration: const InputDecoration(hintText: 'Code from a friend'),
+      decoration: const InputDecoration(hintText: 'Code or link from a friend'),
       style: display(24, color: AppColors.ink, shadow: false),
       onSubmitted: (_) => _play(),
     ),

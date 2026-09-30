@@ -1,20 +1,63 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// Ad unit ids. These are Google's public **test** ids, which always serve
-/// test ads. Replace them with your own AdMob ids before release (and the app
-/// ids in AndroidManifest.xml / Info.plist).
-abstract final class AdIds {
-  static String get rewarded => Platform.isIOS
-      ? 'ca-app-pub-3940256099942544/1712485313'
-      : 'ca-app-pub-3940256099942544/5224354917';
+/// AdMob ids, loaded from `assets/config/admob.json` (see docs/RELEASING.md).
+///
+/// Google's public test ids are used for anything left empty, and always
+/// unless the app is built with `--dart-define=REAL_ADS=true` (the store
+/// bundle is; the GitHub test builds aren't, so testing never clicks real
+/// ads on your own account).
+class AdConfig {
+  const AdConfig({
+    this.androidRewarded = '',
+    this.androidInterstitial = '',
+    this.iosRewarded = '',
+    this.iosInterstitial = '',
+    this.testDevices = const [],
+    this.realAds = const bool.fromEnvironment('REAL_ADS'),
+  });
 
-  static String get interstitial => Platform.isIOS
-      ? 'ca-app-pub-3940256099942544/4411468910'
-      : 'ca-app-pub-3940256099942544/1033173712';
+  factory AdConfig.parse(String json, {bool? realAds}) {
+    final m = jsonDecode(json) as Map<String, dynamic>;
+    String id(String platform, String key) =>
+        (((m[platform] as Map<String, dynamic>?) ?? const {})[key] as String? ?? '').trim();
+    return AdConfig(
+      androidRewarded: id('android', 'rewarded'),
+      androidInterstitial: id('android', 'interstitial'),
+      iosRewarded: id('ios', 'rewarded'),
+      iosInterstitial: id('ios', 'interstitial'),
+      testDevices: ((m['testDevices'] as List?) ?? const []).cast<String>(),
+      realAds: realAds ?? const bool.fromEnvironment('REAL_ADS'),
+    );
+  }
+
+  static const testAndroidRewarded = 'ca-app-pub-3940256099942544/5224354917';
+  static const testAndroidInterstitial = 'ca-app-pub-3940256099942544/1033173712';
+  static const testIosRewarded = 'ca-app-pub-3940256099942544/1712485313';
+  static const testIosInterstitial = 'ca-app-pub-3940256099942544/4411468910';
+
+  final String androidRewarded;
+  final String androidInterstitial;
+  final String iosRewarded;
+  final String iosInterstitial;
+
+  /// Devices that always get test ads (AdMob logs a device's id).
+  final List<String> testDevices;
+
+  /// Serve real ads (store builds) instead of Google's test ads.
+  final bool realAds;
+
+  String _pick(String real, String test) => realAds && real.isNotEmpty ? real : test;
+
+  String rewarded({required bool ios}) =>
+      ios ? _pick(iosRewarded, testIosRewarded) : _pick(androidRewarded, testAndroidRewarded);
+
+  String interstitial({required bool ios}) =>
+      ios ? _pick(iosInterstitial, testIosInterstitial) : _pick(androidInterstitial, testAndroidInterstitial);
 }
 
 /// Rewarded video ads (the player chooses to watch them) and occasional
@@ -64,6 +107,9 @@ class NoAdsService extends AdsService {
 /// Google Mobile Ads with the User Messaging Platform consent flow (GDPR and,
 /// on iOS, the App Tracking Transparency explainer configured in AdMob).
 class GoogleAdsService extends AdsService {
+  GoogleAdsService(this.config);
+
+  final AdConfig config;
   RewardedAd? _rewarded;
   InterstitialAd? _interstitial;
   bool _loadingInterstitial = false;
@@ -102,6 +148,11 @@ class GoogleAdsService extends AdsService {
         PrivacyOptionsRequirementStatus.required;
     if (_canRequest) {
       await MobileAds.instance.initialize();
+      if (config.testDevices.isNotEmpty) {
+        await MobileAds.instance.updateRequestConfiguration(
+          RequestConfiguration(testDeviceIds: config.testDevices),
+        );
+      }
       _load();
       _loadInterstitial();
     }
@@ -112,7 +163,7 @@ class GoogleAdsService extends AdsService {
     if (_loading || _rewarded != null || !_canRequest) return;
     _loading = true;
     RewardedAd.load(
-      adUnitId: AdIds.rewarded,
+      adUnitId: config.rewarded(ios: Platform.isIOS),
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -137,7 +188,7 @@ class GoogleAdsService extends AdsService {
     if (_loadingInterstitial || _interstitial != null || !_canRequest) return;
     _loadingInterstitial = true;
     InterstitialAd.load(
-      adUnitId: AdIds.interstitial,
+      adUnitId: config.interstitial(ios: Platform.isIOS),
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {

@@ -69,8 +69,21 @@
 	<false/>
 	<!-- AdMob app id. This is Google's public TEST id: replace it (and the ad
 	     unit ids in lib/services/ads_service.dart) before release. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.floppyswing.challenge</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>floppyswing</string>
+			</array>
+		</dict>
+	</array>
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>$(ADMOB_APP_ID)</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>This lets us show you ads that are more relevant. Floppy Swing is free because of ads.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

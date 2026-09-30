@@ -11,14 +11,19 @@ import '../game/renderer.dart';
 import '../game/simulation.dart';
 import '../game/skins.dart';
 import '../services/progress.dart';
+import 'gem_store.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-/// Shop: skins, ropes, trails, fail effects, victory dances and collections.
+/// Shop: skins, ropes, trails, fail effects, victory dances, collections,
+/// and gems for real money.
 class ShopScreen extends StatelessWidget {
-  const ShopScreen({super.key});
+  const ShopScreen({super.key, this.gems = false});
 
-  static const _tabs = ['Skins', 'Ropes', 'Trails', 'Fails', 'Dances', 'Sets'];
+  /// Open on the Gems tab.
+  final bool gems;
+
+  static const _tabs = ['Skins', 'Ropes', 'Trails', 'Fails', 'Dances', 'Sets', 'Gems'];
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +31,7 @@ class ShopScreen extends StatelessWidget {
     final progress = services.progress;
     return DefaultTabController(
       length: _tabs.length,
+      initialIndex: gems ? _tabs.length - 1 : 0,
       child: Scaffold(
         backgroundColor: const Color(0xFFFFE3C2),
         body: ContentArea(
@@ -53,7 +59,13 @@ class ShopScreen extends StatelessWidget {
                           children: [
                             CoinBadge(coins: progress.coins),
                             const SizedBox(height: 4),
-                            GemBadge(gems: progress.gems),
+                            // Tapping the gems goes to the gem store.
+                            Builder(
+                              builder: (context) => GestureDetector(
+                                onTap: () => DefaultTabController.of(context).animateTo(_tabs.length - 1),
+                                child: GemBadge(gems: progress.gems),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -84,6 +96,7 @@ class ShopScreen extends StatelessWidget {
                       for (final kind in CosmeticKind.values)
                         _grid([for (final c in cosmetics.where((c) => c.kind == kind)) _itemCard(context, c)]),
                       _collections(context),
+                      const GemStore(),
                     ],
                   ),
                 ),

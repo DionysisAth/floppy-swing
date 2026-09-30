@@ -16,6 +16,7 @@ import 'package:floppy_swing/services/analytics.dart';
 import 'package:floppy_swing/services/audio_service.dart';
 import 'package:floppy_swing/services/games_service.dart';
 import 'package:floppy_swing/services/progress.dart';
+import 'package:floppy_swing/services/purchase_service.dart';
 import 'package:floppy_swing/ui/game_screen.dart';
 import 'package:floppy_swing/ui/level_select_screen.dart';
 import 'package:floppy_swing/ui/shop_screen.dart';
@@ -76,6 +77,7 @@ void main() {
         ads: NoAdsService(),
         analytics: const Analytics(),
         games: GamesService.disabled(progress),
+        purchases: NoPurchaseService(progress, instant: true),
         child: child,
       ),
     ));

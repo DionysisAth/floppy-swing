@@ -42,5 +42,6 @@ class Analytics {
   void modeStart(String mode) => log('mode_start', {'mode': mode});
   void endlessRun(int distance, int score) => log('endless_run', {'distance': distance, 'score': score});
   void dailyComplete(int day, double time) => log('daily_complete', {'day': day, 'time': time.toStringAsFixed(2)});
+  void purchaseStarted(String product) => log('purchase_started', {'product': product});
   void itemBought(String id, String currency) => log('item_bought', {'id': id, 'currency': currency});
 }

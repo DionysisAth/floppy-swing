@@ -49,7 +49,8 @@ replayed in glorious slow motion.
   dances. Everything is cosmetic: no pay-to-win.
 - **Season Pass** - themed seasons with free and premium reward tracks.
 
-Free to play. Contains optional ads.
+Free to play. Contains optional ads and optional in-app purchases (gems,
+Starter Pack, No Ads, Premium Pass).
 
 ## Keywords (App Store, 100 characters)
 
@@ -65,6 +66,26 @@ Games > Arcade (secondary: Games > Casual)
   content inside the game (clips are shared through the system share sheet).
 - Google (IARC questionnaire): cartoon violence, no blood; no user
   interaction inside the game beyond Play Games leaderboards.
+- Both stores: answer **yes** to "in-app purchases" and "contains ads".
+
+## In-app products
+
+Create these in Play Console (Monetize > Products > In-app products) and App
+Store Connect (In-App Purchases) with exactly these product ids. Prices are
+suggestions; the game shows whatever the store says.
+
+| Product id | Type (Play / Apple) | Name | Grants | Price |
+|---|---|---|---|---|
+| `starter_pack` | one-time / Non-Consumable | Starter Pack | 300 gems, 2,500 coins, Laser rope | $2.99 |
+| `remove_ads` | one-time / Non-Consumable | No Ads | no interstitial ads | $2.99 |
+| `season_pass` | one-time, consumable / Consumable | Premium Pass | this season's premium track | $4.99 |
+| `gems_small` | consumable / Consumable | Handful of Gems | 80 gems | $0.99 |
+| `gems_medium` | consumable / Consumable | Bag of Gems | 450 gems | $4.99 |
+| `gems_large` | consumable / Consumable | Chest of Gems | 1,000 gems | $9.99 |
+| `gems_huge` | consumable / Consumable | Vault of Gems | 2,200 gems | $19.99 |
+
+On Google Play every in-app product is a "one-time product"; the game consumes
+the consumable ones itself. The catalogue is in `lib/game/store_products.dart`.
 
 ## What's new (first release)
 

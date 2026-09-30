@@ -13,14 +13,62 @@ leaderboard/achievement buttons are hidden.
 
 ## 2. Ads (your AdMob account)
 
-Replace Google's test IDs:
+All AdMob ids live in **one file, `assets/config/admob.json`**. Empty values
+mean Google's test ids.
 
-- `lib/services/ads_service.dart` (`AdIds.rewarded`, `AdIds.interstitial`);
-- the app IDs in `android/app/src/main/AndroidManifest.xml`
-  (`com.google.android.gms.ads.APPLICATION_ID`) and `ios/Runner/Info.plist`
-  (`GADApplicationIdentifier`);
-- in AdMob, set up the GDPR message and the iOS IDFA explainer under Privacy &
-  messaging. The app already shows them through UMP.
+1. In AdMob (https://admob.google.com) add two apps, Floppy Swing for Android
+   and for iOS (you can link them to the store listings later).
+2. In each app create two ad units: **Rewarded** (revives, double coins) and
+   **Interstitial** (between levels).
+3. Paste the ids into `assets/config/admob.json`:
+   ```json
+   "android": { "appId": "ca-app-pub-XXXX~AAAA", "rewarded": "ca-app-pub-XXXX/BBBB", "interstitial": "ca-app-pub-XXXX/CCCC" },
+   "ios":     { "appId": "ca-app-pub-XXXX~DDDD", "rewarded": "ca-app-pub-XXXX/EEEE", "interstitial": "ca-app-pub-XXXX/FFFF" }
+   ```
+   then run `dart run tool/sync_admob.dart` (copies the iOS app id to
+   `ios/Flutter/AdMob.xcconfig`; Android reads the JSON when building, and CI
+   runs the sync too). `flutter test` checks the two agree.
+4. **Test builds never serve real ads.** Real ads are switched on only by
+   `--dart-define=REAL_ADS=true`, which CI passes when building the Play Store
+   bundle (`FloppySwing.aab`). The `FloppySwing.apk` test builds keep Google's
+   test ads, so you can't click your own ads by accident (AdMob bans accounts
+   for that). To see real ads on your own phone safely, add its id to
+   `testDevices` in the same file (AdMob logs it on the first ad request), or
+   register it in AdMob under Settings > Test devices.
+5. In AdMob, **Privacy & messaging**: create a **GDPR** message (EU/UK
+   consent) and an **IDFA explainer** (iOS). The app already shows them
+   through Google's UMP SDK, and Settings > Privacy options reopens them.
+6. **app-ads.txt**: AdMob asks for a file at `https://<your developer
+   website>/app-ads.txt` with the line it gives you. Put the same website in
+   both store listings. (A GitHub Pages user site,
+   `https://<user>.github.io`, works if that's your listed website.)
+7. Optional, more revenue later: mediation (AppLovin, Unity, ...) is set up in
+   AdMob, and each network needs its adapter plugin added to the app.
+8. iOS: `ios/Runner/Info.plist` lists Google's SKAdNetwork id. AdMob's docs
+   have a longer list of partner ids you can paste into `SKAdNetworkItems`.
+
+## 2b. In-app purchases (gem packs, Starter Pack, No Ads, Premium Pass)
+
+The code is done (`lib/services/purchase_service.dart`, catalogue in
+`lib/game/store_products.dart`). There is no server: the store's confirmation
+is paid out on the device, recorded by transaction id so nothing is paid
+twice, and synced through the cloud save. What's needed in the consoles:
+
+- **Google Play:** set up a payments profile (Play Console > Setup > Payments
+  profile). Upload one build first (Play only lets you add products to an app
+  that has a build with billing, e.g. `FloppySwing.aab` on internal testing),
+  then create the 7 products in Monetize > Products > In-app products with the
+  ids in `docs/store/listing.md`, and activate them. Add your Google account
+  under Settings > License testing to buy without being charged.
+- **App Store:** sign the Paid Apps agreement and fill in banking and tax
+  (App Store Connect > Business). Create the same 7 product ids under your
+  app > In-App Purchases (Consumable / Non-Consumable as in the table), each
+  with a screenshot of the shop for review. Test with a Sandbox account
+  (Users and Access > Sandbox).
+- Until the products exist the shop shows "The store can't be reached" and
+  the buy buttons are greyed out; everything else works.
+- The Gems tab has **Restore purchases** (Apple requires it); reinstalls also
+  restore automatically on Android.
 
 ## 3. Android (Google Play)
 
@@ -51,7 +99,7 @@ Replace Google's test IDs:
 1. Apple Developer account, then in Xcode open `ios/Runner.xcworkspace`, set
    your Team and bundle ID (`com.floppyswing.floppySwing` by default), and
    let Xcode manage signing.
-2. `flutter build ipa --release`
+2. `dart run tool/sync_admob.dart && flutter build ipa --release --dart-define=REAL_ADS=true`
 3. Upload `build/ios/ipa/*.ipa` with Xcode's Organizer or Transporter, and
    add testers in TestFlight.
 4. App Store Connect: fill in the listing, App Privacy (same as Data safety
@@ -69,8 +117,10 @@ Replace Google's test IDs:
 
 ## 6. Version numbers
 
-Bump `version:` in `pubspec.yaml` (`1.0.0+1` means version 1.0.0, build 1);
-each store upload needs a higher build number.
+`version:` in `pubspec.yaml` (`1.0.0+2` means version 1.0.0, build 2) is the
+version name. Each store upload needs a higher build number; CI builds use the
+workflow run number, which always goes up. Bump the version name (e.g.
+`1.0.1`) for each public release.
 
 ## 7. Soft launch
 

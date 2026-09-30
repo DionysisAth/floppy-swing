@@ -10,6 +10,7 @@ import '../game/cosmetics.dart';
 import '../game/game_controller.dart';
 import '../game/season.dart';
 import '../game/skins.dart';
+import '../game/store_products.dart';
 import '../game/worlds.dart';
 
 class LevelRecord {
@@ -183,11 +184,23 @@ class ProgressStore extends ChangeNotifier {
   double sfxVolume = 1.0;
   bool haptics = true;
 
+  /// Daily Challenge reminder notifications (see ReminderService), and
+  /// whether the system permission has been asked for yet.
+  bool reminders = true;
+  bool remindersAsked = false;
+
   /// Levels finished since the last interstitial.
   int levelsSinceAd = 0;
 
-  /// Set by a future "Remove ads" purchase: no interstitials at all.
+  /// Set by the "No Ads" purchase: no interstitials at all.
   bool adsRemoved = false;
+
+  /// Real-money products bought once and kept (see [StoreProduct]).
+  final Set<String> purchasedProducts = {};
+
+  /// Store transaction ids already paid out, so a purchase the store
+  /// reports twice is never granted twice.
+  final List<String> _deliveredPurchases = [];
 
   DateTime? _lastInterstitial;
 
@@ -241,8 +254,14 @@ class ProgressStore extends ChangeNotifier {
     musicVolume = (m['musicVolume'] as num?)?.toDouble() ?? 0.45;
     sfxVolume = (m['sfxVolume'] as num?)?.toDouble() ?? 1.0;
     haptics = (m['haptics'] as bool?) ?? true;
+    reminders = (m['reminders'] as bool?) ?? true;
+    remindersAsked = (m['remindersAsked'] as bool?) ?? false;
     levelsSinceAd = (m['levelsSinceAd'] as num?)?.toInt() ?? 0;
     adsRemoved = (m['adsRemoved'] as bool?) ?? false;
+    purchasedProducts.addAll(((m['purchased'] as List?) ?? const []).cast<String>());
+    _deliveredPurchases
+      ..clear()
+      ..addAll(((m['deliveredPurchases'] as List?) ?? const []).cast<String>());
   }
 
   Map<String, dynamic> toJson() => {
@@ -269,8 +288,12 @@ class ProgressStore extends ChangeNotifier {
     'musicVolume': musicVolume,
     'sfxVolume': sfxVolume,
     'haptics': haptics,
+    'reminders': reminders,
+    'remindersAsked': remindersAsked,
     'levelsSinceAd': levelsSinceAd,
     'adsRemoved': adsRemoved,
+    'purchased': purchasedProducts.toList(),
+    'deliveredPurchases': _deliveredPurchases,
   };
 
   Future<void> _save() async {
@@ -334,6 +357,11 @@ class ProgressStore extends ChangeNotifier {
     ownedItems.addAll(other.ownedItems);
     claimedCollections.addAll(other.claimedCollections);
     adsRemoved = adsRemoved || other.adsRemoved;
+    purchasedProducts.addAll(other.purchasedProducts);
+    for (final id in other._deliveredPurchases) {
+      if (!_deliveredPurchases.contains(id)) _deliveredPurchases.add(id);
+    }
+    _applyPurchasedProducts();
     _checkGolden();
     _save();
   }
@@ -530,6 +558,55 @@ class ProgressStore extends ChangeNotifier {
     _premiumPass = true;
     _save();
     return true;
+  }
+
+  // ------------------------------------------------------------ purchases
+
+  bool ownsProduct(StoreProduct p) => purchasedProducts.contains(p.id);
+
+  /// Whether [p] can be bought right now (once-only products just once, the
+  /// Season Pass only while this season's premium track is locked).
+  bool canBuyProduct(StoreProduct p) =>
+      !(p.type == ProductType.nonConsumable && ownsProduct(p)) && !(p.premiumPass && premiumPass);
+
+  /// Pays out a completed store purchase. [purchaseId] is the store's
+  /// transaction id; a purchase already paid out is ignored. Returns whether
+  /// anything new was granted.
+  bool deliverPurchase(StoreProduct p, String? purchaseId) {
+    if (purchaseId != null && _deliveredPurchases.contains(purchaseId)) return false;
+    if (p.type == ProductType.nonConsumable && ownsProduct(p)) return false;
+    if (purchaseId != null) {
+      _deliveredPurchases.add(purchaseId);
+      if (_deliveredPurchases.length > 300) _deliveredPurchases.removeAt(0);
+    }
+    if (p.type == ProductType.nonConsumable) purchasedProducts.add(p.id);
+    gems += p.gems;
+    coins += p.coins;
+    if (p.premiumPass) {
+      _syncSeason();
+      // Bought twice in one season somehow: refund it as gems.
+      if (_premiumPass) gems += Season.premiumGems;
+      _premiumPass = true;
+    }
+    _applyPurchasedProducts();
+    _save();
+    return true;
+  }
+
+  /// Re-applies what once-only purchases unlock (after a reset or a merge).
+  void _applyPurchasedProducts() {
+    for (final id in purchasedProducts) {
+      final p = storeProductById(id);
+      if (p == null) continue;
+      if (p.removesAds) adsRemoved = true;
+      for (final item in p.items) {
+        if (skins.any((s) => s.id == item)) {
+          ownedSkins.add(item);
+        } else {
+          ownedItems.add(item);
+        }
+      }
+    }
   }
 
   // --------------------------------------------------------- login reward
@@ -747,8 +824,21 @@ class ProgressStore extends ChangeNotifier {
     _save();
   }
 
-  /// Wipes progress, keeping settings.
+  void setReminders(bool v) {
+    reminders = v;
+    _save();
+  }
+
+  void setRemindersAsked() {
+    remindersAsked = true;
+    _save();
+  }
+
+  /// Wipes progress, keeping settings and what was bought with real money
+  /// (No Ads and the Starter Pack's items; gems and coins are progress).
   Future<void> reset() async {
+    final bought = {...purchasedProducts};
+    final delivered = [..._deliveredPurchases];
     levels.clear();
     dailies.clear();
     ownedItems.clear();
@@ -761,7 +851,12 @@ class ProgressStore extends ChangeNotifier {
       'musicVolume': musicVolume,
       'sfxVolume': sfxVolume,
       'haptics': haptics,
+      'reminders': reminders,
+      'remindersAsked': remindersAsked,
+      'purchased': bought.toList(),
+      'deliveredPurchases': delivered,
     });
+    _applyPurchasedProducts();
     await _save();
   }
 }

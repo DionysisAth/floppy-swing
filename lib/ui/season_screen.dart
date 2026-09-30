@@ -4,6 +4,8 @@ import '../app.dart';
 import '../game/cosmetics.dart';
 import '../game/season.dart';
 import '../game/skins.dart';
+import '../game/store_products.dart';
+import 'gem_store.dart';
 import 'shop_screen.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -21,7 +23,8 @@ class SeasonScreen extends StatelessWidget {
     final progress = services.progress;
     return Scaffold(
       backgroundColor: const Color(0xFFEDE3FF),
-      body: ContentArea(
+      body: PurchaseMessages(
+        child: ContentArea(
         child: ListenableBuilder(
           listenable: progress,
           builder: (context, _) {
@@ -92,22 +95,37 @@ class SeasonScreen extends StatelessWidget {
                         ),
                         if (!progress.premiumPass) ...[
                           const SizedBox(height: 10),
-                          ChunkyButton(
-                            onPressed: progress.gems >= Season.premiumGems
-                                ? () {
-                                    if (progress.unlockPremiumPass()) services.audio.play('buy.wav');
-                                  }
-                                : null,
-                            color: _purple,
-                            shade: _purpleDark,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('Unlock Premium  ', style: display(20)),
-                                const GemIcon(size: 20),
-                                Text(' ${Season.premiumGems}', style: display(20)),
+                          Column(
+                            children: [
+                              ChunkyButton(
+                                onPressed: progress.gems >= Season.premiumGems
+                                    ? () {
+                                        if (progress.unlockPremiumPass()) services.audio.play('buy.wav');
+                                      }
+                                    : null,
+                                color: _purple,
+                                shade: _purpleDark,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('Unlock Premium  ', style: display(20)),
+                                    const GemIcon(size: 20),
+                                    Text(' ${Season.premiumGems}', style: display(20)),
+                                  ],
+                                ),
+                              ),
+                              // Or with real money, when the store is reachable.
+                              if (services.purchases.available) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('or  ', style: body(15, weight: 800, color: AppColors.greyDark)),
+                                    const BuyButton(product: seasonPassProduct, fontSize: 18),
+                                  ],
+                                ),
                               ],
-                            ),
+                            ],
                           ),
                         ],
                       ],
@@ -159,6 +177,7 @@ class SeasonScreen extends StatelessWidget {
               ],
             );
           },
+        ),
         ),
       ),
     );
