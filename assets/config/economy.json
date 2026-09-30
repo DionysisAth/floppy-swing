@@ -1,0 +1,32 @@
+{
+  "coinValue": 2,
+  "starReward": 15,
+  "levelCompleteReward": 10,
+  "reviveCost": 60,
+  "endlessMetresPerCoin": 10,
+  "dailyCoins": 60,
+  "dailyGems": 3,
+  "dailyStreakGems": 10,
+  "reviveGems": 3,
+  "skipGems": 10,
+  "skipAfterAttempts": 5,
+  "interstitialEvery": 3,
+  "interstitialFromLevel": 8,
+  "interstitialMinSeconds": 120,
+  "loginRewards": [
+    {"coins": 40},
+    {"coins": 60},
+    {"gems": 3},
+    {"coins": 100},
+    {"coins": 120},
+    {"gems": 5},
+    {"coins": 150, "gems": 10}
+  ],
+  "skinPrices": {
+    "banana": 150,
+    "knight": 300,
+    "astronaut": 450,
+    "chicken": 600,
+    "ninja": 800
+  }
+}

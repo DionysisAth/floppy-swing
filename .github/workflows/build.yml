@@ -1,0 +1,173 @@
+# Builds installable test builds and publishes them as a GitHub pre-release.
+#
+#   Android: FloppySwing.apk (release build, signed with the debug key - fine
+#            for testing, not for the Play Store).
+#   iOS:     FloppySwing-unsigned.ipa (no code signing). Install it on your own
+#            iPhone with a re-signing tool such as Sideloadly or AltStore, or
+#            use it to check the iOS build compiles.
+name: Build test apps
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: 3.47.5
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      HAS_UPLOAD_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      # Release signing, only when the upload key secrets are set (see
+      # docs/RELEASING.md). Without them the APK is signed with the debug key.
+      - name: Upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        if: env.HAS_UPLOAD_KEY == 'true'
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/upload.jks
+          cat > android/key.properties <<PROPS
+          storeFile=../upload.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          PROPS
+      # Every CI build gets a higher build number, as the stores require.
+      - run: flutter build apk --release --build-number=${{ github.run_number }}
+      - name: Play Store bundle
+        if: env.HAS_UPLOAD_KEY == 'true'
+        run: |
+          # The store bundle serves real ads (ids in assets/config/admob.json);
+          # the test APK keeps Google's test ads.
+          flutter build appbundle --release --dart-define=REAL_ADS=true --build-number=${{ github.run_number }}
+          cp build/app/outputs/bundle/release/app-release.aab FloppySwing.aab
+      - run: cp build/app/outputs/flutter-apk/app-release.apk FloppySwing.apk
+      # Play Games must not start itself at launch (it's started on demand
+      # once its ids are set; see AndroidManifest.xml).
+      - name: Check the APK manifest
+        run: |
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT2" dump xmltree FloppySwing.apk --file AndroidManifest.xml > manifest.txt
+          grep -iE "provider|games" manifest.txt | grep -i "name" || true
+          if grep -q "PlayGamesInitProvider" manifest.txt; then
+            echo "::error::PlayGamesInitProvider is still in the manifest"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FloppySwing-android
+          path: |
+            FloppySwing.apk
+            FloppySwing.aab
+
+  android-smoke-test:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: FloppySwing-android
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Launch on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: bash tool/ci_smoke_test.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-smoke-test
+          path: |
+            logcat.txt
+            mem_samples.txt
+            smoke_*.png
+
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart run tool/sync_admob.dart
+      - run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry FloppySwing-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FloppySwing-ios-unsigned
+          path: FloppySwing-unsigned.ipa
+
+  release:
+    needs: [android, android-smoke-test, ios]
+    # Only publish builds that launched on the emulator without crashing.
+    if: always() && needs.android-smoke-test.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: test-build-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Floppy Swing test build ${{ github.run_number }}
+          prerelease: true
+          fail_on_unmatched_files: false
+          files: |
+            FloppySwing.apk
+            FloppySwing.aab
+            FloppySwing-unsigned.ipa
+          body: |
+            Test build from `${{ github.ref_name }}` @ ${{ github.sha }}.
+
+            **Android:** download `FloppySwing.apk` on your phone, open it and allow
+            "install unknown apps" when asked.
+
+            **iPhone:** iOS can't install an APK, and unsigned apps can't be installed
+            directly. Use `FloppySwing-unsigned.ipa` with Sideloadly or AltStore (they sign
+            it with your Apple ID), or publish through TestFlight with an Apple Developer
+            account. The IPA is missing if the iOS build failed.
