@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -20,7 +21,7 @@ val keyProperties = Properties().apply {
 // use Google's test app id, matching the test ad units they load.
 val realAds: Boolean = (project.findProperty("dart-defines") as String?)
     ?.split(",")
-    ?.map { String(java.util.Base64.getDecoder().decode(it)) }
+    ?.map { String(Base64.getDecoder().decode(it)) }
     ?.contains("REAL_ADS=true") == true
 val admobAppId: String = run {
     val test = "ca-app-pub-3940256099942544~3347511713"
