@@ -81,6 +81,13 @@ jobs:
             echo "::error::PlayGamesInitProvider is still in the manifest"
             exit 1
           fi
+          # Test builds use Google's test AdMob app id (the real one only goes
+          # into the store bundle): a real id with test ad units froze the
+          # emulator's software GPU.
+          if ! grep -q "ca-app-pub-3940256099942544~3347511713" manifest.txt; then
+            echo "::error::The test APK should use Google's test AdMob app id"
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: FloppySwing-android

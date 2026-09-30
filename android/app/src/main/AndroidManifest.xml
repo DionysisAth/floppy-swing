@@ -41,8 +41,8 @@
             <!-- Links are handled by app_links, not Flutter's router. -->
             <meta-data android:name="flutter_deeplinking_enabled" android:value="false"/>
         </activity>
-        <!-- AdMob app id: set in assets/config/admob.json (build.gradle.kts
-             fills it in; Google's test id while that's empty). -->
+        <!-- AdMob app id: from assets/config/admob.json in store builds
+             (REAL_ADS=true), Google's test id otherwise (build.gradle.kts). -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="${admobAppId}"/>

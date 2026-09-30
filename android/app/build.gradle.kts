@@ -15,13 +15,20 @@ val keyProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
-// AdMob app id from assets/config/admob.json (Google's test id while it's
-// empty). The ad unit ids in the same file are read by the Dart code.
+// AdMob app id from assets/config/admob.json, used only in store builds
+// (built with --dart-define=REAL_ADS=true, like the Play bundle). Test builds
+// use Google's test app id, matching the test ad units they load.
+val realAds: Boolean = (project.findProperty("dart-defines") as String?)
+    ?.split(",")
+    ?.map { String(java.util.Base64.getDecoder().decode(it)) }
+    ?.contains("REAL_ADS=true") == true
 val admobAppId: String = run {
+    val test = "ca-app-pub-3940256099942544~3347511713"
+    if (!realAds) return@run test
     val json = rootProject.file("../assets/config/admob.json").readText()
     val android = Regex("\"android\"\\s*:\\s*\\{([^}]*)\\}").find(json)?.groupValues?.get(1).orEmpty()
     Regex("\"appId\"\\s*:\\s*\"([^\"]*)\"").find(android)?.groupValues?.get(1)?.trim().orEmpty()
-        .ifEmpty { "ca-app-pub-3940256099942544~3347511713" }
+        .ifEmpty { test }
 }
 
 android {

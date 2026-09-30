@@ -28,7 +28,8 @@ mean Google's test ids.
    then run `dart run tool/sync_admob.dart` (copies the iOS app id to
    `ios/Flutter/AdMob.xcconfig`; Android reads the JSON when building, and CI
    runs the sync too). `flutter test` checks the two agree.
-4. **Test builds never serve real ads.** Real ads are switched on only by
+4. **Test builds never serve real ads.** Real ads (your ad units and, on
+   Android, your app id) are switched on only by
    `--dart-define=REAL_ADS=true`, which CI passes when building the Play Store
    bundle (`FloppySwing.aab`). The `FloppySwing.apk` test builds keep Google's
    test ads, so you can't click your own ads by accident (AdMob bans accounts
