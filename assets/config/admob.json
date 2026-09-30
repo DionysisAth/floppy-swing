@@ -1,9 +1,9 @@
 {
   "_help": "Your AdMob ids (docs/RELEASING.md). Leave a value empty to use Google's test id. After changing appId, run: dart run tool/sync_admob.dart",
   "android": {
-    "appId": "",
-    "rewarded": "",
-    "interstitial": ""
+    "appId": "ca-app-pub-1774874652706103~2650194500",
+    "rewarded": "ca-app-pub-1774874652706103/2458622818",
+    "interstitial": "ca-app-pub-1774874652706103/5884620090"
   },
   "ios": {
     "appId": "",

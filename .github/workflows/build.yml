@@ -62,10 +62,11 @@ jobs:
       # Every CI build gets a higher build number, as the stores require.
       - run: flutter build apk --release --build-number=${{ github.run_number }}
       - name: Play Store bundle
-        if: env.HAS_UPLOAD_KEY == 'true'
         run: |
           # The store bundle serves real ads (ids in assets/config/admob.json);
-          # the test APK keeps Google's test ads.
+          # the test APK keeps Google's test ads. Without the upload key
+          # secrets it's signed with the debug key and must be re-signed with
+          # the upload key before Play accepts it (docs/RELEASING.md).
           flutter build appbundle --release --dart-define=REAL_ADS=true --build-number=${{ github.run_number }}
           cp build/app/outputs/bundle/release/app-release.aab FloppySwing.aab
       - run: cp build/app/outputs/flutter-apk/app-release.apk FloppySwing.apk
