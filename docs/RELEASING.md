@@ -94,6 +94,31 @@ twice, and synced through the cloud save. What's needed in the consoles:
    (see `docs/privacy-policy.md`: gameplay data and Play Games profile
    through Google, device IDs through AdMob), and the content rating.
 
+## 3b. Publishing to Google Play from GitHub
+
+`.github/workflows/play.yml` ("Publish to Google Play", run by hand from the
+Actions tab) builds the signed store bundle with real ads, uploads the store
+listing (text in `docs/store/play/listing_en-US.json`, icon, feature graphic,
+screenshots) and puts the bundle on a track. It needs these repository
+secrets: the four upload key secrets above plus `PLAY_SERVICE_ACCOUNT_JSON`
+(the whole JSON key of a Google Cloud service account that has been invited in
+Play Console > Users and permissions). Never commit that key.
+
+- Until the app has been approved once, Google only accepts **draft**
+  releases: the workflow leaves a draft on the track, and you press
+  "Send for review" in Play Console after finishing the App content forms
+  (privacy policy URL, ads, content rating, target audience, data safety).
+- New personal developer accounts must run a **closed test with at least 12
+  testers for 14 days** before production is unlocked; run the workflow with
+  track `alpha` (closed testing) for that.
+- The same script works locally:
+  `PLAY_SERVICE_ACCOUNT=key.json python3 tool/store/play_publish.py listing`.
+
+Store graphics: `docs/store/play/` (512 px icon, 1024x500 feature graphic,
+made by `tool/store/feature_art_test.dart` + `make_store_assets.py`). The 15 s
+9:16 promo video (TikTok / Reels / Shorts, and the Play listing via a YouTube
+link) is made by `tool/store/promo_video_test.dart` + `make_promo_video.py`.
+
 ## 4. iOS (App Store / TestFlight)
 
 1. Apple Developer account, then in Xcode open `ios/Runner.xcworkspace`, set

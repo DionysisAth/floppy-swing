@@ -54,3 +54,7 @@ android/key.properties
 
 # Store screenshot renders (converted copies live in docs/store/screenshots)
 tool/screenshots/out/
+
+# Store asset build outputs (tool/store); the promo video is big, share it directly.
+tool/store/out/
+docs/store/play/promo_video.mp4
