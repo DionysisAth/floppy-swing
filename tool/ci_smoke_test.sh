@@ -21,10 +21,14 @@ diagnose() {
   tail -40 logcat.txt
 }
 
+# Exit code 2 (and the emulator_died marker) means the emulator itself died:
+# CI retries that once on a fresh emulator. An app crash is exit code 1.
+rm -f emulator_died
 emulator_alive() {
   if [ "$(timeout 15 adb get-state 2>/dev/null | tr -d '\r')" != "device" ]; then
     echo "::error::The emulator went offline during the test ($1). See the diagnostics below and logcat.txt."
     diagnose
+    touch emulator_died
     exit 2
   fi
 }

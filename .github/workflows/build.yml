@@ -110,6 +110,8 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Launch on emulator
+        id: smoke
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -117,6 +119,23 @@ jobs:
           target: google_apis
           disable-animations: true
           script: bash tool/ci_smoke_test.sh
+      # The CI emulator sometimes dies on its own (the same APK passes and
+      # fails from run to run, with no app crash in logcat). Only then, try
+      # once more on a fresh emulator; an app crash fails straight away.
+      - name: App crashed
+        if: steps.smoke.outcome == 'failure' && hashFiles('emulator_died') == ''
+        run: |
+          echo "::error::The app failed the smoke test (see the Launch on emulator step)"
+          exit 1
+      - name: Launch on emulator (retry after the emulator died)
+        if: steps.smoke.outcome == 'failure' && hashFiles('emulator_died') != ''
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: mkdir -p first-attempt && mv logcat.txt mem_samples.txt smoke_*.png first-attempt/ 2>/dev/null; bash tool/ci_smoke_test.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -125,6 +144,7 @@ jobs:
             logcat.txt
             mem_samples.txt
             smoke_*.png
+            first-attempt/
 
   ios:
     runs-on: macos-latest
