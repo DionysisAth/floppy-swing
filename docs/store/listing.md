@@ -92,9 +92,8 @@ the consumable ones itself. The catalogue is in `lib/game/store_products.dart`.
 Hello, world! Swing through 100 levels, the Daily Challenge and Endless mode,
 then climb the leaderboards and hunt achievements.
 
-## Contact and URLs to fill in
+## Contact and URLs
 
-- Support URL and marketing URL: your site.
-- Privacy policy URL: host `docs/privacy-policy.md` (for example with GitHub
-  Pages) and link it.
-- Contact email: yours.
+- Contact email (public): chris96skan@gmail.com
+- Website: https://github.com/DionysisAth/floppy-swing
+- Privacy policy URL: https://github.com/DionysisAth/floppy-swing/blob/main/docs/privacy-policy.md

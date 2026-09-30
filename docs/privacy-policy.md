@@ -1,8 +1,8 @@
 # Floppy Swing privacy policy
 
-_Last updated: [date]. Replace the bracketed parts before publishing._
+_Last updated: 30 September 2026._
 
-Floppy Swing ("the game") is made by [developer name]. This policy explains
+Floppy Swing ("the game") is made by Floppy Swing. This policy explains
 what the game collects and why.
 
 ## Without an internet connection
@@ -55,11 +55,11 @@ Settings > Reset progress wipes the progress on your device, and uninstalling
 the game removes it. Your leaderboard scores, achievements and cloud save
 live in your Google Play Games or Game Center account: remove them there
 (Play Games app > Settings > Delete Play Games account and data, or on iOS
-Settings > Game Center). You can also email [contact email] with questions.
+Settings > Game Center). You can also email chris96skan@gmail.com with questions.
 
 ## Children
 
-The game is intended for players aged [12] and over. It does not knowingly
+The game is intended for players aged 13 and over. It does not knowingly
 collect personal information from children.
 
 ## Security and retention
@@ -70,4 +70,4 @@ policies.
 
 ## Changes and contact
 
-We'll post changes to this policy here. Questions: [contact email].
+We'll post changes to this policy here. Questions: chris96skan@gmail.com.
