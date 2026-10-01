@@ -66,6 +66,8 @@ twice, and synced through the cloud save. What's needed in the consoles:
   app > In-App Purchases (Consumable / Non-Consumable as in the table), each
   with a screenshot of the shop for review. Test with a Sandbox account
   (Users and Access > Sandbox).
+- `tool/store/play_products.py` creates and activates all 7 on Google Play
+  through the API (prices in USD, converted per country by Google).
 - Until the products exist the shop shows "The store can't be reached" and
   the buy buttons are greyed out; everything else works.
 - The Gems tab has **Restore purchases** (Apple requires it); reinstalls also
