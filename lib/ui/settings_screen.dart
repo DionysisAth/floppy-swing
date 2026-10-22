@@ -107,7 +107,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Floppy Swing 1.0\n${l.fonts}: Lilita One, Fredoka & M PLUS Rounded 1c (SIL OFL)',
+                'Floppy Swing 1.1\n${l.fonts}: Lilita One, Fredoka & M PLUS Rounded 1c (SIL OFL)',
                 textAlign: TextAlign.center,
                 style: body(13, color: AppColors.greyDark),
               ),
