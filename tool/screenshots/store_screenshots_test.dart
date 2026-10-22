@@ -34,6 +34,8 @@ Future<void> loadFonts() async {
 
   await load('LilitaOne', 'assets/fonts/LilitaOne-Regular.ttf');
   await load('Fredoka', 'assets/fonts/Fredoka.ttf');
+  await load('MPLUSRounded', 'assets/fonts/MPLUSRounded1c-Bold.ttf');
+  await load('MPLUSRoundedBlack', 'assets/fonts/MPLUSRounded1c-Black.ttf');
   await load('MaterialIcons', '${Platform.environment['FLUTTER_ROOT'] ?? '/opt/sdk/flutter'}'
       '/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
 }

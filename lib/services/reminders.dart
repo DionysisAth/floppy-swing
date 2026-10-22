@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:ui' show Locale;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../l10n/l10n.dart';
 import 'progress.dart';
 
 /// One scheduled Daily Challenge reminder.
@@ -24,11 +27,18 @@ const reminderDays = 3;
 
 /// The reminders to schedule from [now]: one a day at [reminderHour], today's
 /// only if today's challenge isn't done yet and the hour hasn't passed.
-List<Reminder> planReminders(DateTime now, {required bool doneToday, required int streak}) {
-  const later = [
-    ('A fresh Daily Challenge is here', 'New level, new ghost to beat. Can you get all 3 stars?'),
-    ('Floppy is getting restless', "Today's Daily Challenge won't swing itself."),
-    ('Daily Challenge time!', 'One quick swing? Clear it to keep your streak going.'),
+/// Written in [strings]' language (English by default).
+List<Reminder> planReminders(
+  DateTime now, {
+  required bool doneToday,
+  required int streak,
+  AppLocalizations? strings,
+}) {
+  final l = strings ?? lookupAppLocalizations(const Locale('en'));
+  final later = [
+    (l.reminderFreshTitle, l.reminderFreshBody),
+    (l.reminderRestlessTitle, l.reminderRestlessBody),
+    (l.reminderTimeTitle, l.reminderTimeBody),
   ];
   final out = <Reminder>[];
   for (var d = 0; d < reminderDays; d++) {
@@ -40,8 +50,8 @@ List<Reminder> planReminders(DateTime now, {required bool doneToday, required in
         Reminder(
           d,
           at,
-          streak > 0 ? 'Keep your $streak-day streak!' : "Today's Daily Challenge is waiting",
-          streak > 0 ? "Clear today's Daily Challenge before midnight." : 'A new level every day. Go get those stars!',
+          streak > 0 ? l.reminderStreakTitle(streak) : l.reminderTodayTitle,
+          streak > 0 ? l.reminderStreakBody : l.reminderTodayBody,
         ),
       );
     } else {
@@ -57,9 +67,20 @@ List<Reminder> planReminders(DateTime now, {required bool doneToday, required in
 /// Permission is only asked for once a player has cleared a Daily Challenge
 /// (or turns reminders on in Settings), never at first launch.
 class ReminderService {
-  ReminderService(this.progress);
+  ReminderService(this.progress, {AppLocalizations? strings})
+    : _strings = strings ?? lookupAppLocalizations(const Locale('en'));
 
   final ProgressStore progress;
+  AppLocalizations _strings;
+
+  /// Writes future reminders in [strings]' language (the app calls this with
+  /// its current language).
+  void useStrings(AppLocalizations strings) {
+    if (strings.localeName == _strings.localeName) return;
+    _strings = strings;
+    unawaited(reschedule());
+  }
+
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
 
@@ -121,20 +142,21 @@ class ReminderService {
         now,
         doneToday: progress.dailyRecord(progress.today).completed,
         streak: progress.currentDailyStreak,
+        strings: _strings,
       );
       for (final r in plan) {
         await _plugin.zonedSchedule(
           id: r.id,
           // UTC instant of the local time, so no time zone database is needed.
           scheduledDate: tz.TZDateTime.from(r.at, tz.UTC),
-          notificationDetails: const NotificationDetails(
+          notificationDetails: NotificationDetails(
             android: AndroidNotificationDetails(
               'daily_challenge',
-              'Daily Challenge reminders',
-              channelDescription: 'A nudge when a new Daily Challenge is out.',
+              _strings.dailyReminders,
+              channelDescription: _strings.reminderChannelDescription,
               importance: Importance.defaultImportance,
             ),
-            iOS: DarwinNotificationDetails(),
+            iOS: const DarwinNotificationDetails(),
           ),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           title: r.title,

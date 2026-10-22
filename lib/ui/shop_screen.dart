@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../l10n/l10n.dart';
 import '../game/cosmetics.dart';
+import '../game/game_words.dart';
 import '../game/level.dart';
 import '../game/ragdoll.dart';
 import '../game/renderer.dart';
@@ -23,15 +25,18 @@ class ShopScreen extends StatelessWidget {
   /// Open on the Gems tab.
   final bool gems;
 
-  static const _tabs = ['Skins', 'Ropes', 'Trails', 'Fails', 'Dances', 'Sets', 'Gems'];
+  static const _tabCount = 7;
+
+  static List<String> _tabs(AppLocalizations l) =>
+      [l.tabSkins, l.tabRopes, l.tabTrails, l.tabFails, l.tabDances, l.tabSets, l.tabGems];
 
   @override
   Widget build(BuildContext context) {
     final services = AppServices.of(context);
     final progress = services.progress;
     return DefaultTabController(
-      length: _tabs.length,
-      initialIndex: gems ? _tabs.length - 1 : 0,
+      length: _tabCount,
+      initialIndex: gems ? _tabCount - 1 : 0,
       child: Scaffold(
         backgroundColor: const Color(0xFFFFE3C2),
         body: ContentArea(
@@ -45,13 +50,17 @@ class ShopScreen extends StatelessWidget {
                     children: [
                       RoundButton(
                         icon: Icons.arrow_back_rounded,
-                        tooltip: 'Back',
+                        tooltip: context.l.back,
                         onPressed: () => Navigator.of(context).pop(),
                         size: 22,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text('SHOP', style: display(36, color: AppColors.pink)),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(context.l.shop, style: display(36, color: AppColors.pink)),
+                        ),
                       ),
                       FittedBox(
                         child: Column(
@@ -62,7 +71,7 @@ class ShopScreen extends StatelessWidget {
                             // Tapping the gems goes to the gem store.
                             Builder(
                               builder: (context) => GestureDetector(
-                                onTap: () => DefaultTabController.of(context).animateTo(_tabs.length - 1),
+                                onTap: () => DefaultTabController.of(context).animateTo(_tabCount - 1),
                                 child: GemBadge(gems: progress.gems),
                               ),
                             ),
@@ -86,7 +95,7 @@ class ShopScreen extends StatelessWidget {
                   unselectedLabelStyle: display(18, color: AppColors.ink, shadow: false),
                   labelPadding: const EdgeInsets.symmetric(horizontal: 14),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  tabs: [for (final t in _tabs) Tab(text: t, height: 40)],
+                  tabs: [for (final t in _tabs(context.l)) Tab(text: t, height: 40)],
                 ),
                 const SizedBox(height: 8),
                 Expanded(
@@ -156,13 +165,13 @@ class ShopScreen extends StatelessWidget {
     final price = progress.priceOf(skin);
     return _card(
       preview: SkinPreview(skin: skin),
-      name: skin.name,
-      tagline: skin.tagline,
+      name: context.l.skinName(skin),
+      tagline: context.l.skinTagline(skin),
       selected: selected,
       action: selected
-          ? Text('EQUIPPED', style: display(18, color: AppColors.greenDark, shadow: false))
+          ? Text(context.l.equipped, style: display(18, color: AppColors.greenDark, shadow: false))
           : owned
-          ? _wear(() => progress.selectSkin(skin))
+          ? _wear(context, () => progress.selectSkin(skin))
           : skin.id == 'golden'
           ? _SeasonOnly(
               icon: Icons.star_rounded,
@@ -191,13 +200,13 @@ class ShopScreen extends StatelessWidget {
     final selected = progress.equippedId(c.kind) == c.id;
     return _card(
       preview: CosmeticPreview(item: c),
-      name: c.name,
-      tagline: c.tagline,
+      name: context.l.itemName(c),
+      tagline: context.l.itemTagline(c),
       selected: selected,
       action: selected
-          ? Text('EQUIPPED', style: display(18, color: AppColors.greenDark, shadow: false))
+          ? Text(context.l.equipped, style: display(18, color: AppColors.greenDark, shadow: false))
           : owned
-          ? _wear(() => progress.equip(c))
+          ? _wear(context, () => progress.equip(c))
           : c.exclusive
           ? const _SeasonOnly()
           : _PriceButton(
@@ -214,9 +223,9 @@ class ShopScreen extends StatelessWidget {
     );
   }
 
-  Widget _wear(VoidCallback onPressed) => ChunkyButton(
+  Widget _wear(BuildContext context, VoidCallback onPressed) => ChunkyButton(
     onPressed: onPressed,
-    label: 'Use',
+    label: context.l.use,
     fontSize: 18,
     color: AppColors.blue,
     shade: AppColors.blueDark,
@@ -226,7 +235,7 @@ class ShopScreen extends StatelessWidget {
   Widget _collections(BuildContext context) {
     final services = AppServices.of(context);
     final progress = services.progress;
-    String nameOf(String id) => skins.any((s) => s.id == id) ? skinById(id).name : cosmeticById(id).name;
+    final l = context.l;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
@@ -241,7 +250,7 @@ class ShopScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(c.name, style: display(22, color: AppColors.ink, shadow: false)),
+                        Text(l.collectionName(c), style: display(22, color: AppColors.ink, shadow: false)),
                         const SizedBox(height: 4),
                         Wrap(
                           spacing: 6,
@@ -259,7 +268,7 @@ class ShopScreen extends StatelessWidget {
                                   children: [
                                     if (progress.owns(id))
                                       const Icon(Icons.check_rounded, size: 14, color: AppColors.greenDark),
-                                    Text(nameOf(id), style: body(13, weight: 700)),
+                                    Text(l.anyItemName(id), style: body(13, weight: 700)),
                                   ],
                                 ),
                               ),
@@ -327,12 +336,14 @@ class _PriceButton extends StatelessWidget {
 class _SeasonOnly extends StatelessWidget {
   const _SeasonOnly({
     this.icon = Icons.workspace_premium_rounded,
-    this.label = 'Season Pass',
+    this.label,
     this.color = const Color(0xFF8F6BC7),
   });
 
   final IconData icon;
-  final String label;
+
+  /// Defaults to "Season Pass".
+  final String? label;
   final Color color;
 
   @override
@@ -341,7 +352,12 @@ class _SeasonOnly extends StatelessWidget {
     children: [
       Icon(icon, color: color, size: 20),
       const SizedBox(width: 4),
-      Text(label, style: display(16, color: color, shadow: false)),
+      Flexible(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(label ?? context.l.seasonPass, style: display(16, color: color, shadow: false)),
+        ),
+      ),
     ],
   );
 }
@@ -410,14 +426,18 @@ class _CosmeticPreviewState extends State<CosmeticPreview> with SingleTickerProv
     }
     return AnimatedBuilder(
       animation: _a,
-      builder: (_, _) => CustomPaint(painter: _CosmeticPainter(widget.item, _a.value * 3), size: Size.infinite),
+      builder: (_, _) => CustomPaint(
+        painter: _CosmeticPainter(widget.item, _a.value * 3, context.l.gameWords),
+        size: Size.infinite,
+      ),
     );
   }
 }
 
 class _CosmeticPainter extends CustomPainter {
-  _CosmeticPainter(this.item, this.time);
+  _CosmeticPainter(this.item, this.time, this.words);
   final Cosmetic item;
+  final GameWords words;
 
   /// Seconds into the looping preview.
   final double time;
@@ -443,6 +463,7 @@ class _CosmeticPainter extends CustomPainter {
     canvas.clipRRect(box);
     canvas.translate(size.width / 2, size.height / 2);
     canvas.scale(scale);
+    _renderer.words = words;
     switch (item.kind) {
       case CosmeticKind.rope:
         const anchor = Offset(0, -1.6);
@@ -459,7 +480,7 @@ class _CosmeticPainter extends CustomPainter {
         canvas.drawCircle(trail.last, 0.2, Paint()..color = const Color(0xFFFF8A3D));
       case CosmeticKind.failEffect:
         final t = (time % 1.5) / 1.2;
-        if (t < 1) _renderer.drawFailEffect(canvas, 0, 1.2, t, 3, item.id, 'OUCH!');
+        if (t < 1) _renderer.drawFailEffect(canvas, 0, 1.2, t, 3, item.id, words.spikes);
       case CosmeticKind.dance:
         break;
     }

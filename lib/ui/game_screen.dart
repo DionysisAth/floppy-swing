@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../app.dart';
+import '../l10n/l10n.dart';
 import '../services/links.dart';
 import '../game/course_builder.dart';
 import '../game/floppy_game.dart';
@@ -67,6 +68,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _controller?.renderer.words = context.l.gameWords;
     if (_controller != null) return;
     _services = AppServices.of(context);
     final level = switch (widget.mode) {
@@ -87,6 +89,7 @@ class _GameScreenState extends State<GameScreen> {
       c.renderer.ghost = _services.progress.ghostFor(_ghostKey!);
     }
     if (widget.mode != PlayMode.campaign) _services.analytics.modeStart(widget.mode.name);
+    _controller!.renderer.words = context.l.gameWords;
     _game = FloppyGame(_controller!);
     GameScreen.debugLastController = _controller;
     _lastAttempt = c.attempts;
@@ -191,9 +194,10 @@ class _GameScreenState extends State<GameScreen> {
     final box = _shareKey.currentContext?.findRenderObject() as RenderBox?;
     final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
     try {
-      await ClipExporter().exportAndShare(
+      final l = context.l;
+      await ClipExporter(strings: l).exportAndShare(
         c,
-        caption: clipCaption(c),
+        caption: clipCaption(c, l),
         shareOrigin: origin,
         onProgress: (p) {
           if (mounted) setState(() => _exportProgress = p);
@@ -202,7 +206,7 @@ class _GameScreenState extends State<GameScreen> {
       _services.analytics.clipShared(c.phase == GamePhase.won ? 'win' : 'fail');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not make the clip: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l.clipFailed('$e'))));
       }
     } finally {
       if (mounted) {
@@ -217,10 +221,7 @@ class _GameScreenState extends State<GameScreen> {
     final r = c.endlessResult;
     await SharePlus.instance.share(
       ShareParams(
-        text:
-            'I swung ${r?.distance ?? 0} m in Floppy Swing Endless. Can you beat me? '
-            '${challengeLink(widget.seed)}\n'
-            '(Or tap "Challenge code" in the menu and enter ${widget.seed}.)',
+        text: context.l.challengeShare(r?.distance ?? 0, challengeLink(widget.seed), '${widget.seed}'),
       ),
     );
   }
@@ -311,7 +312,9 @@ class _GameScreenState extends State<GameScreen> {
             ),
             _Hud(controller: c, onPause: () => c.setPaused(true)),
             if (phase == GamePhase.ready && c.sim.startedAt == null && !c.paused)
-              _HintBanner(text: c.revived ? 'Revived! Hold to swing.' : (c.level.hint ?? 'Hold anywhere to swing!')),
+              _HintBanner(
+                text: c.revived ? context.l.hintRevived : (context.l.levelHint(c.level) ?? context.l.hintHold),
+              ),
             if (phase == GamePhase.replay) const _ReplayBadge(),
             if (phase == GamePhase.replay || phase == GamePhase.failed) _failPanel(),
             if (phase == GamePhase.won && _showWin) _winPanel(),
@@ -323,16 +326,9 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  static const _failLines = {
-    DeathCause.spikes: ['Pointy end first.', 'That\'s gonna leave a mark.', 'Spike: 1, You: 0'],
-    DeathCause.saw: ['Sliced and diced!', 'Saw that coming?', 'Bzzzzt!'],
-    DeathCause.pit: ['Gravity wins again.', 'Down you go!', 'The floor is spiky.'],
-    DeathCause.stuck: ['Nap time?', 'Stuck like glue.', 'Taking a breather?'],
-  };
-
   String _failLine() {
     final cause = c.sim.deathCause ?? DeathCause.pit;
-    final lines = _failLines[cause]!;
+    final lines = context.l.failLines(cause);
     return lines[c.attempts % lines.length];
   }
 
@@ -341,6 +337,7 @@ class _GameScreenState extends State<GameScreen> {
     final ads = _services.ads;
     final progress = _services.progress;
     final cost = _services.economy.reviveCost;
+    final l = context.l;
     return Positioned(
       left: 16,
       right: 16,
@@ -361,7 +358,7 @@ class _GameScreenState extends State<GameScreen> {
                     Text(line, textAlign: TextAlign.center, style: display(34)),
                     const SizedBox(height: 6),
                     _Pulse(
-                      child: Text('Tap anywhere to retry', style: display(22, color: AppColors.yellow)),
+                      child: Text(l.tapToRetry, style: display(22, color: AppColors.yellow)),
                     ),
                   ],
                 ),
@@ -377,7 +374,7 @@ class _GameScreenState extends State<GameScreen> {
                     child: ChunkyButton(
                       onPressed: _share,
                       icon: Icons.ios_share_rounded,
-                      label: 'Share fail',
+                      label: l.shareFail,
                       color: AppColors.pink,
                       shade: const Color(0xFFC02E63),
                       fontSize: 20,
@@ -387,7 +384,7 @@ class _GameScreenState extends State<GameScreen> {
                   if (_endless)
                     RoundButton(
                       icon: Icons.sports_kabaddi_rounded,
-                      tooltip: 'Challenge a friend',
+                      tooltip: l.challengeFriend,
                       onPressed: _challenge,
                       color: AppColors.green,
                       shade: AppColors.greenDark,
@@ -395,7 +392,7 @@ class _GameScreenState extends State<GameScreen> {
                   if (_endless && _games.available)
                     RoundButton(
                       icon: Icons.emoji_events_rounded,
-                      tooltip: 'Leaderboard',
+                      tooltip: l.leaderboard,
                       onPressed: () => _openRanks(Board.endless),
                       color: AppColors.orange,
                       shade: AppColors.orangeDark,
@@ -406,21 +403,21 @@ class _GameScreenState extends State<GameScreen> {
                         popRoute(GameScreen.endless(seed: DateTime.now().microsecondsSinceEpoch & 0x7fffffff)),
                       ),
                       icon: Icons.shuffle_rounded,
-                      label: 'New course',
+                      label: l.newCourse,
                       color: AppColors.blue,
                       shade: AppColors.blueDark,
                       fontSize: 20,
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     ),
                   if (_canSkip && progress.gems >= _services.economy.skipGems)
-                    _gemButton('Skip level', _services.economy.skipGems, _skip),
+                    _gemButton(l.skipLevel, _services.economy.skipGems, _skip),
                   if (c.canRevive) ...[
                     ListenableBuilder(
                       listenable: ads,
                       builder: (_, _) => ChunkyButton(
                         onPressed: ads.rewardedReady ? _reviveWithAd : null,
                         icon: Icons.play_circle_fill_rounded,
-                        label: 'Revive',
+                        label: l.revive,
                         color: AppColors.green,
                         shade: AppColors.greenDark,
                         fontSize: 20,
@@ -428,7 +425,7 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
                     if (progress.gems >= _services.economy.reviveGems)
-                      _gemButton('Revive', _services.economy.reviveGems, _reviveWithGems),
+                      _gemButton(l.revive, _services.economy.reviveGems, _reviveWithGems),
                     ChunkyButton(
                       onPressed: progress.coins >= cost ? _reviveWithCoins : null,
                       color: AppColors.yellow,
@@ -437,7 +434,7 @@ class _GameScreenState extends State<GameScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('Revive ', style: display(20)),
+                          Text('${l.revive} ', style: display(20)),
                           const CoinIcon(size: 20),
                           Text(' $cost', style: display(20)),
                         ],
@@ -470,16 +467,17 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _endlessCard(EndlessResult r) {
     final reward = _modeReward;
+    final l = context.l;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Panel(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
         child: Column(
           children: [
-            if (_rank case final rank?) Text('#$rank worldwide', style: body(15, weight: 800, color: AppColors.blue)),
-            if (reward?.newBest ?? false) Text('NEW BEST!', style: display(22, color: AppColors.pink, shadow: false)),
-            Text('${r.distance} m', style: display(48, color: AppColors.orange)),
-            Text('Score ${r.score}  ·  Best ${_services.progress.endlessBest}', style: body(17, weight: 700)),
+            if (_rank case final rank?) Text(l.rankWorldwide(rank), style: body(15, weight: 800, color: AppColors.blue)),
+            if (reward?.newBest ?? false) Text(l.newBest, style: display(22, color: AppColors.pink, shadow: false)),
+            Text(l.meters(r.distance), style: display(48, color: AppColors.orange)),
+            Text(l.endlessScore(r.score, _services.progress.endlessBest), style: body(17, weight: 700)),
             if (reward != null && reward.coins > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -501,6 +499,7 @@ class _GameScreenState extends State<GameScreen> {
     final reward = _modeReward;
     if (reward == null) return const SizedBox.shrink();
     final streak = _services.progress.currentDailyStreak;
+    final l = context.l;
     return Column(
       children: [
         Row(
@@ -515,17 +514,17 @@ class _GameScreenState extends State<GameScreen> {
             ],
           ],
         ),
-        if (reward.newBest) Text('New best time today!', style: body(16, weight: 700)),
+        if (reward.newBest) Text(l.newBestToday, style: body(16, weight: 700)),
         if (_rank case final rank?)
           GestureDetector(
             onTap: () => _openRanks(Board.daily),
-            child: Text('#$rank today  ›', style: body(16, weight: 800, color: AppColors.blue)),
+            child: Text('${l.rankToday(rank)}  ›', style: body(16, weight: 800, color: AppColors.blue)),
           ),
         if (streak > 0)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              '🔥 $streak day streak${reward.streakBonus ? ' - bonus gems!' : ''}',
+              reward.streakBonus ? l.dayStreakBonus(streak) : l.dayStreak(streak),
               style: body(16, weight: 700),
             ),
           ),
@@ -544,6 +543,7 @@ class _GameScreenState extends State<GameScreen> {
     final worldClear = !_daily && c.level.id % WorldInfo.levelsPerWorld == 0;
     // Finished a world but the next one still needs stars.
     final gate = next != null && !hasNext ? WorldInfo.byNumber(next.world) : null;
+    final l = context.l;
     return Positioned.fill(
       child: ColoredBox(
         color: AppColors.scrim,
@@ -556,7 +556,8 @@ class _GameScreenState extends State<GameScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _daily ? 'DAILY CLEAR!' : (worldClear ? 'WORLD CLEAR!' : 'LEVEL CLEAR!'),
+                      _daily ? l.dailyClear : (worldClear ? l.worldClear : l.levelClear),
+                      textAlign: TextAlign.center,
                       style: display(40, color: AppColors.orange),
                     ),
                     const SizedBox(height: 8),
@@ -564,20 +565,20 @@ class _GameScreenState extends State<GameScreen> {
                     const SizedBox(height: 10),
                     _statRow(
                       Icons.timer_rounded,
-                      'Time',
+                      l.statTime,
                       '${r.time.toStringAsFixed(2)}s',
                       r.timeStar ? AppColors.greenDark : AppColors.ink,
-                      sub: 'target ${c.level.targetTime.toStringAsFixed(1)}s',
+                      sub: l.statTarget(c.level.targetTime.toStringAsFixed(1)),
                     ),
                     _statRow(
                       Icons.toll_rounded,
-                      'Coins',
+                      l.statCoins,
                       '${r.coins}/${r.totalCoins}',
                       r.coinStar ? AppColors.greenDark : AppColors.ink,
                     ),
-                    if (r.style > 0) _statRow(Icons.auto_awesome_rounded, 'Style', '${r.style}', AppColors.ink),
+                    if (r.style > 0) _statRow(Icons.auto_awesome_rounded, l.statStyle, '${r.style}', AppColors.ink),
                     if (best != null)
-                      _statRow(Icons.emoji_events_rounded, 'Best', '${best.toStringAsFixed(2)}s', AppColors.ink),
+                      _statRow(Icons.emoji_events_rounded, l.statBest, '${best.toStringAsFixed(2)}s', AppColors.ink),
                     const Divider(height: 22, thickness: 2),
                     if (_daily) _dailyRewardRow(),
                     if (reward != null)
@@ -593,7 +594,7 @@ class _GameScreenState extends State<GameScreen> {
                           if (reward.newStars > 0) ...[
                             const SizedBox(width: 10),
                             Text(
-                              '(+${reward.newStars} ${reward.newStars == 1 ? 'star' : 'stars'})',
+                              l.newStars(reward.newStars),
                               style: body(16, weight: 600),
                             ),
                           ],
@@ -603,7 +604,7 @@ class _GameScreenState extends State<GameScreen> {
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
-                          'Collect ${gate.starsNeeded - _services.progress.totalStars} more stars to open ${gate.name}!',
+                          l.worldGate(gate.starsNeeded - _services.progress.totalStars, l.worldName(gate)),
                           textAlign: TextAlign.center,
                           style: body(16, weight: 700),
                         ),
@@ -618,7 +619,7 @@ class _GameScreenState extends State<GameScreen> {
                                 child: ChunkyButton(
                                   onPressed: _doubleCoins,
                                   icon: Icons.play_circle_fill_rounded,
-                                  label: 'Double coins',
+                                  label: l.doubleCoins,
                                   color: AppColors.green,
                                   shade: AppColors.greenDark,
                                   fontSize: 22,
@@ -628,30 +629,34 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: 10,
                       children: [
                         RoundButton(
                           icon: Icons.replay_rounded,
-                          tooltip: 'Retry',
+                          tooltip: l.retry,
                           onPressed: c.retry,
                           color: AppColors.blue,
                           shade: AppColors.blueDark,
                         ),
-                        const SizedBox(width: 10),
                         KeyedSubtree(
                           key: _shareKey,
                           child: RoundButton(
                             icon: Icons.ios_share_rounded,
-                            tooltip: 'Share',
+                            tooltip: l.share,
                             onPressed: _share,
                             color: AppColors.pink,
                             shade: const Color(0xFFC02E63),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        ChunkyButton(
-                          onPressed: _next,
-                          label: hasNext ? 'Next' : (_daily ? 'Done' : 'Levels'),
-                          icon: Icons.arrow_forward_rounded,
+                        // Shrinks its label on narrow phones and with long
+                        // translations.
+                        Flexible(
+                          child: ChunkyButton(
+                            onPressed: _next,
+                            label: hasNext ? l.next : (_daily ? l.done : l.levels),
+                            icon: Icons.arrow_forward_rounded,
+                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                          ),
                         ),
                       ],
                     ),
@@ -681,6 +686,7 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _pausePanel() {
     final progress = _services.progress;
+    final l = context.l;
     return Positioned.fill(
       child: ColoredBox(
         color: AppColors.scrim,
@@ -695,7 +701,7 @@ class _GameScreenState extends State<GameScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'PAUSED',
+                      l.paused,
                       textAlign: TextAlign.center,
                       style: display(40, color: AppColors.orange),
                     ),
@@ -703,7 +709,7 @@ class _GameScreenState extends State<GameScreen> {
                     const SizedBox(height: 16),
                     ChunkyButton(
                       onPressed: () => c.setPaused(false),
-                      label: 'Resume',
+                      label: l.resume,
                       icon: Icons.play_arrow_rounded,
                       expand: true,
                     ),
@@ -713,7 +719,7 @@ class _GameScreenState extends State<GameScreen> {
                         c.setPaused(false);
                         c.retry();
                       },
-                      label: 'Restart',
+                      label: l.restart,
                       icon: Icons.replay_rounded,
                       color: AppColors.blue,
                       shade: AppColors.blueDark,
@@ -722,7 +728,7 @@ class _GameScreenState extends State<GameScreen> {
                     const SizedBox(height: 6),
                     ChunkyButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      label: widget.mode == PlayMode.campaign ? 'Levels' : 'Quit',
+                      label: widget.mode == PlayMode.campaign ? l.levels : l.quit,
                       icon: Icons.grid_view_rounded,
                       color: AppColors.grey,
                       shade: AppColors.greyDark,
@@ -734,7 +740,7 @@ class _GameScreenState extends State<GameScreen> {
                       children: [
                         RoundButton(
                           icon: progress.musicVolume > 0 ? Icons.music_note_rounded : Icons.music_off_rounded,
-                          tooltip: 'Music',
+                          tooltip: l.music,
                           onPressed: () {
                             progress.setMusicVolume(progress.musicVolume > 0 ? 0 : 0.45);
                             _services.audio.startMusic();
@@ -743,7 +749,7 @@ class _GameScreenState extends State<GameScreen> {
                         const SizedBox(width: 12),
                         RoundButton(
                           icon: progress.sfxVolume > 0 ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                          tooltip: 'Sound effects',
+                          tooltip: l.soundEffects,
                           onPressed: () => progress.setSfxVolume(progress.sfxVolume > 0 ? 0 : 1),
                         ),
                       ],
@@ -793,6 +799,7 @@ class _HudState extends State<_Hud> with SingleTickerProviderStateMixin {
     final beating = time <= c.level.targetTime;
     final endless = c.mode == PlayMode.endless;
     final zoneAge = c.wallTime - c.zoneEnteredAt;
+    final l = context.l;
     return Positioned(
       left: 0,
       right: 0,
@@ -804,25 +811,25 @@ class _HudState extends State<_Hud> with SingleTickerProviderStateMixin {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              RoundButton(icon: Icons.pause_rounded, tooltip: 'Pause', onPressed: widget.onPause, size: 22),
+              RoundButton(icon: Icons.pause_rounded, tooltip: l.pause, onPressed: widget.onPause, size: 22),
               Expanded(
                 child: IgnorePointer(
                   child: Column(
                     children: [
                       if (endless) ...[
-                        Text('ENDLESS', style: display(18)),
-                        Text('${c.distance.floor()} m', style: display(34)),
+                        Text(l.endless, style: display(18)),
+                        Text(l.meters(c.distance.floor()), style: display(34)),
                         if (zoneAge < 2.5)
                           Opacity(
                             opacity: zoneAge < 2 ? 1 : (2.5 - zoneAge) * 2,
                             child: Text(
-                              'ZONE ${c.zoneWorld}: ${WorldInfo.byNumber(c.zoneWorld).name.toUpperCase()}',
+                              l.zoneBanner(c.zoneWorld, upper(l.worldName(WorldInfo.byNumber(c.zoneWorld)), l.localeName)),
                               style: display(20, color: AppColors.yellow),
                             ),
                           ),
                       ] else ...[
                         Text(
-                          c.mode == PlayMode.daily ? 'DAILY: ${c.level.name}' : '${c.level.id}. ${c.level.name}',
+                          c.mode == PlayMode.daily ? l.hudDaily(c.level.name) : '${c.level.id}. ${c.level.name}',
                           style: display(18),
                         ),
                         Text(
@@ -831,7 +838,7 @@ class _HudState extends State<_Hud> with SingleTickerProviderStateMixin {
                         ),
                       ],
                       if (sim.styleScore > 0)
-                        Text('STYLE ${sim.styleScore.round()}', style: display(16, color: AppColors.yellow)),
+                        Text(l.hudStyle(sim.styleScore.round()), style: display(16, color: AppColors.yellow)),
                     ],
                   ),
                 ),
@@ -913,7 +920,7 @@ class _ReplayBadge extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.ink, width: 3),
               ),
-              child: Text('SLOW-MO REPLAY', style: display(18)),
+              child: Text(context.l.slowMoReplay, style: display(18)),
             ),
           ),
         ),
@@ -937,7 +944,7 @@ class _ExportOverlay extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Making your clip…', style: display(26, color: AppColors.orange)),
+                Text(context.l.makingClip, textAlign: TextAlign.center, style: display(26, color: AppColors.orange)),
                 const SizedBox(height: 14),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
@@ -1020,7 +1027,8 @@ class _StarRevealState extends State<_StarReveal> with SingleTickerProviderState
       scheduleMicrotask(() => AppServices.maybeOf(context)?.audio.play('ding.wav', volume: 0.6 + i * 0.2));
     }
     final scale = earned ? Curves.elasticOut.transform(t) : 1.0;
-    const labels = ['Finish', 'Time', 'Coins'];
+    final l = context.l;
+    final labels = [l.starFinish, l.statTime, l.statCoins];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Column(

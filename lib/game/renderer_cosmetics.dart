@@ -290,7 +290,7 @@ extension CosmeticArt on WorldRenderer {
       case 'confetti':
         _confetti(canvas, x, y - 0.5, t * 1.2, seed);
         _burst(canvas, x, y, (t * 1.6).clamp(0.0, 1.0), seed);
-        _comicText(canvas, 'WHEEE!', x, y - 1.6, t, 1.2);
+        _comicText(canvas, words.confetti, x, y - 1.6, t, 1.2);
       case 'coinpile':
         for (var k = 0; k < 24; k++) {
           final vx = (_rand(seed, k) - 0.5) * 9;
@@ -309,7 +309,7 @@ extension CosmeticArt on WorldRenderer {
           canvas.drawCircle(Offset.zero, 0.17, _stroke);
           canvas.restore();
         }
-        _comicText(canvas, 'JACKPOT!', x, y - 1.8, t, 1.2);
+        _comicText(canvas, words.jackpot, x, y - 1.8, t, 1.2);
       case 'squeaky':
         for (var k = 0; k < 3; k++) {
           final rt = (t * 1.5 - k * 0.15).clamp(0.0, 1.0);
@@ -319,7 +319,7 @@ extension CosmeticArt on WorldRenderer {
             ..strokeWidth = 0.12;
           canvas.drawCircle(Offset(x, y), 0.4 + rt * 2.4, _stroke);
         }
-        _comicText(canvas, 'SQUEAK!', x, y - 1.7, t, 1.3);
+        _comicText(canvas, words.squeak, x, y - 1.7, t, 1.3);
       default:
         _burst(canvas, x, y, t, seed);
         _comicText(canvas, word, x, y - 1.6, t, 1.3);

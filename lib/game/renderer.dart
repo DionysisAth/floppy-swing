@@ -6,6 +6,7 @@ import 'package:flutter/painting.dart';
 
 import 'cosmetics.dart';
 import 'course_builder.dart';
+import 'game_words.dart';
 import 'level.dart';
 import 'ragdoll.dart';
 import 'simulation.dart';
@@ -214,6 +215,9 @@ class WorldRenderer {
 
   /// Equipped rope, trail and fail effect.
   Loadout look = const Loadout();
+
+  /// Comic words drawn in the world, in the player's language.
+  GameWords words = const GameWords();
 
   /// The next zone's theme, faded in over the end of an endless zone.
   WorldTheme? _nextTheme;
@@ -508,7 +512,7 @@ class WorldRenderer {
         ..close(),
       _fill,
     );
-    _comicText(canvas, 'BEST', x + 1.1, -14, 0.5, 0.55);
+    _comicText(canvas, words.best, x + 1.1, -14, 0.5, 0.55);
   }
 
   void _drawScenery(
@@ -1994,7 +1998,7 @@ class WorldRenderer {
           if (age < 0.45) _dust(canvas, e.x, e.y, age / 0.45, idx);
           if (age < 0.6) _dizzyStars(canvas, e.x, e.y, age / 0.6, idx);
           if (e.value > 11 && age < 0.5) {
-            _comicText(canvas, 'BONK!', e.x, e.y - 1.2, age / 0.5, 0.9);
+            _comicText(canvas, words.bonk, e.x, e.y - 1.2, age / 0.5, 0.9);
           }
         case EventKind.bounce:
           if (age < 0.3) {
@@ -2020,7 +2024,7 @@ class WorldRenderer {
             final t = age / 1.2;
             _floatText(
               canvas,
-              '${e.label}  +${e.value.toInt()}',
+              '${words.style(e.label ?? '')}  +${e.value.toInt()}',
               e.x,
               e.y - 1.8 - t * 1.5,
               t,
@@ -2031,7 +2035,7 @@ class WorldRenderer {
           if (age < 1.2) {
             _floatText(
               canvas,
-              'CHECKPOINT!',
+              words.checkpoint,
               e.x,
               e.y - 4.2 - age,
               age / 1.2,
@@ -2057,12 +2061,12 @@ class WorldRenderer {
         case EventKind.shatter:
           if (age < 0.9) _shards(canvas, e.x, e.y, age, idx);
           if (age < 0.5) {
-            _comicText(canvas, 'SMASH!', e.x, e.y - 2.2, age / 0.5, 0.9);
+            _comicText(canvas, words.smash, e.x, e.y - 2.2, age / 0.5, 0.9);
           }
         case EventKind.boom:
           if (age < 0.6) _explosion(canvas, e.x, e.y, age / 0.6, idx);
           if (e.label == 'hit' && age < 0.7) {
-            _comicText(canvas, 'KABOOM!', e.x, e.y - 1.8, age / 0.7, 1.2);
+            _comicText(canvas, words.kaboom, e.x, e.y - 1.8, age / 0.7, 1.2);
           }
         case EventKind.crumble:
           if (age < 0.45) _dust(canvas, e.x, e.y, age / 0.45, idx);
@@ -2077,11 +2081,11 @@ class WorldRenderer {
     }
   }
 
-  static String _deathWord(int cause) => switch (DeathCause.values[cause]) {
-    DeathCause.saw => 'ZZZING!',
-    DeathCause.spikes => 'OUCH!',
-    DeathCause.pit => 'YEOWCH!',
-    DeathCause.stuck => 'ZZZ...',
+  String _deathWord(int cause) => switch (DeathCause.values[cause]) {
+    DeathCause.saw => words.saw,
+    DeathCause.spikes => words.spikes,
+    DeathCause.pit => words.pit,
+    DeathCause.stuck => words.stuck,
   };
 
   double _rand(int seed, int k) {
@@ -2147,7 +2151,7 @@ class WorldRenderer {
       );
     }
     if (first) {
-      _comicText(canvas, 'GO!', origin.dx, origin.dy - 2.2 - t, t, 1.2);
+      _comicText(canvas, words.go, origin.dx, origin.dy - 2.2 - t, t, 1.2);
     }
   }
 
@@ -2235,6 +2239,7 @@ class WorldRenderer {
           text: text,
           style: TextStyle(
             fontFamily: 'LilitaOne',
+            fontFamilyFallback: const ['MPLUSRoundedBlack'],
             fontSize: size,
             color: color,
             shadows: const [

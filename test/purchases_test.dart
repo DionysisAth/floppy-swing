@@ -77,7 +77,9 @@ void main() {
     final store = NoPurchaseService(p, instant: true);
     await store.buy(gemPacks[1]);
     expect(p.gems, gemPacks[1].gems);
-    expect(store.takeMessage(), contains('Thanks'));
+    final m = store.takeMessage()!;
+    expect(m.notice, PurchaseNotice.thanks);
+    expect(m.product, gemPacks[1]);
     expect(store.takeMessage(), isNull);
     expect(NoPurchaseService(p).available, isFalse);
   });

@@ -96,6 +96,8 @@ lib/
                    games_service + games_ids (Play Games / Game Center),
                    purchase_service (in-app purchases), reminders, links
   ui/              Screens and widgets
+  l10n/            Translations: app_<lang>.arb (English is the template), and
+                   l10n.dart (phone-language pick, names of items/worlds by id)
 assets/
   config/physics.json   <- tune the feel here
   config/economy.json
@@ -119,6 +121,8 @@ tool/
   gen_levels.dart     Generates levels 16-100 from a seed per level
   death_map.dart      Shows where the bot dies on a level
   gen_audio.py        Synthesises all sounds and music
+  l10n/check_arb.py   Checks every translation against the English file
+  l10n/preview_test.dart  Screenshots of the main screens in each language
 ```
 
 ## Running
@@ -132,6 +136,29 @@ flutter analyze
 
 iOS needs Xcode (deployment target 15.0) and Android needs the Android SDK
 (minSdk 24). Both use the standard `flutter build ipa` / `flutter build appbundle`.
+
+## Languages
+
+The game is in English, Greek, German, Spanish, French, Indonesian, Italian,
+Polish, Portuguese, Turkish, Russian, Ukrainian, Japanese, Korean and
+Chinese (Simplified). It starts in the phone's language (English if the game
+doesn't have it), and Settings > Language can pick another. Level names stay
+in English; their tutorial hints are translated.
+
+To change or add text, edit `lib/l10n/app_en.arb` (the template) and the same
+key in every other `app_<lang>.arb`, then:
+
+```bash
+flutter gen-l10n                     # regenerates lib/l10n/app_localizations*.dart
+python3 tool/l10n/check_arb.py       # missing keys, placeholders, plurals, capitals
+LANGS=el flutter test tool/l10n/preview_test.dart   # screenshots in tool/l10n/out/
+```
+
+A new language needs its `app_<code>.arb`, an entry in `languageNames`
+(`lib/l10n/l10n.dart`), `android/app/src/main/res/xml/locales_config.xml` and
+`CFBundleLocalizations` in `ios/Runner/Info.plist`. Greek and Cyrillic letters
+come from M PLUS Rounded 1c (bundled, Latin/Greek/Cyrillic subset); Japanese,
+Korean and Chinese use the phone's own fonts.
 
 ## Tuning the feel
 

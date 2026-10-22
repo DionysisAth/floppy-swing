@@ -8,6 +8,20 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import '../game/store_products.dart';
 import 'progress.dart';
 
+/// What happened to the last purchase, shown in the player's language.
+enum PurchaseNotice { thanks, busy, restored, unreachable, failed }
+
+class PurchaseMessage {
+  const PurchaseMessage(this.notice, [this.product]);
+  final PurchaseNotice notice;
+
+  /// The product bought, for [PurchaseNotice.thanks].
+  final StoreProduct? product;
+
+  @override
+  String toString() => '${notice.name}${product == null ? '' : ' ${product!.id}'}';
+}
+
 /// Real-money purchases (gem packs, Starter Pack, No Ads, Premium Pass).
 ///
 /// There's no server: purchases are paid out on the device as soon as the
@@ -26,9 +40,9 @@ abstract class PurchaseService extends ChangeNotifier {
 
   /// A short message about the last purchase ("Thanks!", an error...), for a
   /// snackbar. Cleared with [takeMessage].
-  String? get message;
+  PurchaseMessage? get message;
 
-  String? takeMessage();
+  PurchaseMessage? takeMessage();
 
   Future<void> init();
 
@@ -47,7 +61,7 @@ class NoPurchaseService extends PurchaseService {
 
   final ProgressStore progress;
   final bool instant;
-  String? _message;
+  PurchaseMessage? _message;
   var _n = 0;
 
   @override
@@ -57,9 +71,9 @@ class NoPurchaseService extends PurchaseService {
   @override
   String priceOf(StoreProduct p) => p.fallbackPrice;
   @override
-  String? get message => _message;
+  PurchaseMessage? get message => _message;
   @override
-  String? takeMessage() {
+  PurchaseMessage? takeMessage() {
     final m = _message;
     _message = null;
     return m;
@@ -79,7 +93,7 @@ class NoPurchaseService extends PurchaseService {
   Future<void> restore() async {}
 }
 
-String _thanks(StoreProduct p) => 'Thanks! ${p.name} unlocked.';
+PurchaseMessage _thanks(StoreProduct p) => PurchaseMessage(PurchaseNotice.thanks, p);
 
 /// Google Play Billing / StoreKit through the `in_app_purchase` plugin.
 class StorePurchaseService extends PurchaseService {
@@ -91,7 +105,7 @@ class StorePurchaseService extends PurchaseService {
   StreamSubscription<List<PurchaseDetails>>? _sub;
   bool _available = false;
   bool _busy = false;
-  String? _message;
+  PurchaseMessage? _message;
 
   @override
   bool get available => _available && _details.isNotEmpty;
@@ -100,9 +114,9 @@ class StorePurchaseService extends PurchaseService {
   @override
   String priceOf(StoreProduct p) => _details[p.id]?.price ?? p.fallbackPrice;
   @override
-  String? get message => _message;
+  PurchaseMessage? get message => _message;
   @override
-  String? takeMessage() {
+  PurchaseMessage? takeMessage() {
     final m = _message;
     _message = null;
     return m;
@@ -148,7 +162,7 @@ class StorePurchaseService extends PurchaseService {
     } catch (e) {
       debugPrint('Purchase failed to start: $e');
       _busy = false;
-      _message = 'The store is busy. Please try again.';
+      _message = const PurchaseMessage(PurchaseNotice.busy);
     }
     notifyListeners();
   }
@@ -157,9 +171,9 @@ class StorePurchaseService extends PurchaseService {
   Future<void> restore() async {
     try {
       await _iap.restorePurchases();
-      _message = 'Purchases restored.';
+      _message = const PurchaseMessage(PurchaseNotice.restored);
     } catch (e) {
-      _message = "Couldn't reach the store.";
+      _message = const PurchaseMessage(PurchaseNotice.unreachable);
     }
     notifyListeners();
   }
@@ -174,7 +188,7 @@ class StorePurchaseService extends PurchaseService {
           _busy = false;
         case PurchaseStatus.error:
           _busy = false;
-          _message = 'Purchase failed. You have not been charged.';
+          _message = const PurchaseMessage(PurchaseNotice.failed);
           debugPrint('Purchase error: ${pd.error}');
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:

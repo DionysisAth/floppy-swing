@@ -12,12 +12,12 @@ import 'package:share_plus/share_plus.dart';
 import '../game/game_controller.dart';
 import '../game/renderer.dart';
 import '../game/simulation.dart';
+import '../l10n/app_localizations.dart';
 
-/// Text used on the clip's end card and in the share sheet. Put the real
-/// store link here once the game is live.
+/// Text used on the clip's end card and in the share sheet, besides the
+/// translated tagline and call to action. Put the real store link here once
+/// the game is live.
 abstract final class ShareText {
-  static const tagline = 'Can you do better?';
-  static const cta = 'Floppy Swing - free on iOS & Android';
   static const link = 'floppyswing.app';
   static const hashtags = '#FloppySwing #fail #gaming';
 }
@@ -30,7 +30,11 @@ abstract final class ShareText {
 /// (AVAssetWriter on iOS, MediaCodec on Android) through the
 /// `floppy_swing/video` channel.
 class ClipExporter {
-  ClipExporter({this.width = 720, this.height = 1280, this.fps = 30});
+  ClipExporter({this.width = 720, this.height = 1280, this.fps = 30, AppLocalizations? strings})
+    : strings = strings ?? lookupAppLocalizations(const ui.Locale('en'));
+
+  /// The player's language, for the end card and share text.
+  final AppLocalizations strings;
 
   static const _channel = MethodChannel('floppy_swing/video');
 
@@ -87,7 +91,7 @@ class ClipExporter {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(path, mimeType: 'video/mp4')],
-        text: '${ShareText.tagline} ${ShareText.hashtags}',
+        text: '${strings.shareTagline} ${ShareText.hashtags}',
         sharePositionOrigin: shareOrigin,
       ),
     );
@@ -156,7 +160,7 @@ class ClipExporter {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(path, mimeType: 'image/png')],
-        text: '${ShareText.tagline} ${ShareText.hashtags}',
+        text: '${strings.shareTagline} ${ShareText.hashtags}',
         sharePositionOrigin: origin,
       ),
     );
@@ -185,6 +189,7 @@ class ClipExporter {
       text: text,
       style: TextStyle(
         fontFamily: 'LilitaOne',
+        fontFamilyFallback: const ['MPLUSRoundedBlack'],
         fontSize: size,
         color: color,
         shadows: const [Shadow(color: Color(0xFF2B1D14), offset: Offset(3, 4))],
@@ -205,7 +210,7 @@ class ClipExporter {
   }
 
   void _slowMoBadge(Canvas canvas, Size size) {
-    final tp = _tp('SLOW-MO REPLAY', 40, const Color(0xFFFFE14D));
+    final tp = _tp(strings.slowMoReplay, 40, const Color(0xFFFFE14D));
     tp.paint(canvas, Offset((size.width - tp.width) / 2, size.height - 160));
   }
 
@@ -221,14 +226,14 @@ class ClipExporter {
     canvas.save();
     canvas.translate(size.width / 2, size.height * 0.38);
     canvas.scale(pop);
-    final title = _tp(ShareText.tagline, 92, const Color(0xFFFFFFFF), maxWidth: size.width - 80);
+    final title = _tp(strings.shareTagline, 92, const Color(0xFFFFFFFF), maxWidth: size.width - 80);
     title.paint(canvas, Offset(-title.width / 2, -title.height / 2));
     canvas.restore();
     final cap = _tp(caption, 44, const Color(0xFFFFE14D), maxWidth: size.width - 80);
     cap.paint(canvas, Offset((size.width - cap.width) / 2, size.height * 0.52));
     final logo = _tp('FLOPPY SWING', 78, const Color(0xFFFFFFFF));
     logo.paint(canvas, Offset((size.width - logo.width) / 2, size.height * 0.68));
-    final cta = _tp('${ShareText.cta}\n${ShareText.link}', 32, const Color(0xFFFFFFFF), maxWidth: size.width - 80);
+    final cta = _tp('${strings.shareCta}\n${ShareText.link}', 32, const Color(0xFFFFFFFF), maxWidth: size.width - 80);
     cta.paint(canvas, Offset((size.width - cta.width) / 2, size.height * 0.8));
   }
 }
@@ -241,16 +246,17 @@ class _ClipFrame {
 }
 
 /// Short caption for a run, used on the end card.
-String clipCaption(GameController c) {
+String clipCaption(GameController c, AppLocalizations l) {
+  final id = c.level.id;
   if (c.phase == GamePhase.won) {
     final r = c.result;
-    return r == null ? 'Level ${c.level.id} cleared!' : 'Level ${c.level.id} in ${r.time.toStringAsFixed(2)}s';
+    return r == null ? l.clipCleared(id) : l.clipTime(id, r.time.toStringAsFixed(2));
   }
   return switch (c.sim.deathCause) {
-    DeathCause.saw => 'Met a saw on level ${c.level.id}',
-    DeathCause.spikes => 'Found the spikes on level ${c.level.id}',
-    DeathCause.pit => 'Missed everything on level ${c.level.id}',
-    DeathCause.stuck => 'Took a nap on level ${c.level.id}',
-    null => 'Level ${c.level.id}',
+    DeathCause.saw => l.clipSaw(id),
+    DeathCause.spikes => l.clipSpikes(id),
+    DeathCause.pit => l.clipPit(id),
+    DeathCause.stuck => l.clipStuck(id),
+    null => l.clipLevel(id),
   };
 }

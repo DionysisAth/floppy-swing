@@ -18,8 +18,13 @@ abstract final class AppColors {
 }
 
 /// Fredoka is a variable font; pick weights through font variations.
+/// Greek and Cyrillic letters come from M PLUS Rounded (see pubspec.yaml).
+const bodyFallback = ['MPLUSRounded'];
+const displayFallback = ['MPLUSRoundedBlack'];
+
 TextStyle body(double size, {double weight = 500, Color color = AppColors.ink}) => TextStyle(
   fontFamily: 'Fredoka',
+  fontFamilyFallback: bodyFallback,
   fontSize: size,
   color: color,
   fontVariations: [FontVariation.weight(weight)],
@@ -28,6 +33,7 @@ TextStyle body(double size, {double weight = 500, Color color = AppColors.ink}) 
 /// Chunky display face for titles and buttons.
 TextStyle display(double size, {Color color = Colors.white, bool shadow = true}) => TextStyle(
   fontFamily: 'LilitaOne',
+  fontFamilyFallback: displayFallback,
   fontSize: size,
   color: color,
   height: 1.05,
@@ -39,6 +45,7 @@ TextStyle display(double size, {Color color = Colors.white, bool shadow = true})
 ThemeData buildTheme() => ThemeData(
   useMaterial3: true,
   fontFamily: 'Fredoka',
+  fontFamilyFallback: bodyFallback,
   colorScheme: ColorScheme.fromSeed(seedColor: AppColors.orange, primary: AppColors.orange),
   scaffoldBackgroundColor: AppColors.cream,
   sliderTheme: const SliderThemeData(

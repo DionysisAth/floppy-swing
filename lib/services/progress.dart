@@ -189,6 +189,9 @@ class ProgressStore extends ChangeNotifier {
   bool reminders = true;
   bool remindersAsked = false;
 
+  /// Language code picked in Settings, or null to follow the phone.
+  String? language;
+
   /// Levels finished since the last interstitial.
   int levelsSinceAd = 0;
 
@@ -256,6 +259,7 @@ class ProgressStore extends ChangeNotifier {
     haptics = (m['haptics'] as bool?) ?? true;
     reminders = (m['reminders'] as bool?) ?? true;
     remindersAsked = (m['remindersAsked'] as bool?) ?? false;
+    language = m['language'] as String?;
     levelsSinceAd = (m['levelsSinceAd'] as num?)?.toInt() ?? 0;
     adsRemoved = (m['adsRemoved'] as bool?) ?? false;
     purchasedProducts.addAll(((m['purchased'] as List?) ?? const []).cast<String>());
@@ -290,6 +294,7 @@ class ProgressStore extends ChangeNotifier {
     'haptics': haptics,
     'reminders': reminders,
     'remindersAsked': remindersAsked,
+    'language': ?language,
     'levelsSinceAd': levelsSinceAd,
     'adsRemoved': adsRemoved,
     'purchased': purchasedProducts.toList(),
@@ -829,6 +834,12 @@ class ProgressStore extends ChangeNotifier {
     _save();
   }
 
+  /// [code] null follows the phone's language.
+  void setLanguage(String? code) {
+    language = code;
+    _save();
+  }
+
   void setRemindersAsked() {
     remindersAsked = true;
     _save();
@@ -853,6 +864,7 @@ class ProgressStore extends ChangeNotifier {
       'haptics': haptics,
       'reminders': reminders,
       'remindersAsked': remindersAsked,
+      'language': ?language,
       'purchased': bought.toList(),
       'deliveredPurchases': delivered,
     });

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../l10n/l10n.dart';
 import '../game/cosmetics.dart';
 import '../game/season.dart';
 import '../game/skins.dart';
@@ -21,6 +22,7 @@ class SeasonScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final services = AppServices.of(context);
     final progress = services.progress;
+    final l = context.l;
     return Scaffold(
       backgroundColor: const Color(0xFFEDE3FF),
       body: PurchaseMessages(
@@ -40,7 +42,7 @@ class SeasonScreen extends StatelessWidget {
                     children: [
                       RoundButton(
                         icon: Icons.arrow_back_rounded,
-                        tooltip: 'Back',
+                        tooltip: l.back,
                         onPressed: () => Navigator.of(context).pop(),
                         size: 22,
                       ),
@@ -49,11 +51,15 @@ class SeasonScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('SEASON PASS', style: display(18, color: _purple)),
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
-                              child: Text(theme.name, style: display(30, color: _purpleDark, shadow: false)),
+                              child: Text(l.seasonPassTitle, style: display(18, color: _purple)),
+                            ),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(l.seasonName(theme), style: display(30, color: _purpleDark, shadow: false)),
                             ),
                           ],
                         ),
@@ -70,9 +76,9 @@ class SeasonScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            Text('Tier $tier', style: display(24, color: AppColors.ink, shadow: false)),
+                            Text(l.tierNumber(tier), style: display(24, color: AppColors.ink, shadow: false)),
                             const Spacer(),
-                            Text('${Season.daysLeft(progress.today)} days left', style: body(15, weight: 700)),
+                            Text(l.daysLeft(Season.daysLeft(progress.today)), style: body(15, weight: 700)),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -88,8 +94,8 @@ class SeasonScreen extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           tier >= Season.tiers
-                              ? 'Season complete!'
-                              : '$xpInTier / ${Season.xpPerTier} XP  ·  Earn XP by finishing levels, dailies and Endless runs',
+                              ? l.seasonComplete
+                              : l.seasonXp(xpInTier, Season.xpPerTier),
                           textAlign: TextAlign.center,
                           style: body(13, weight: 600, color: AppColors.greyDark),
                         ),
@@ -108,7 +114,7 @@ class SeasonScreen extends StatelessWidget {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text('Unlock Premium  ', style: display(20)),
+                                    Flexible(child: Text('${l.unlockPremium}  ', style: display(20))),
                                     const GemIcon(size: 20),
                                     Text(' ${Season.premiumGems}', style: display(20)),
                                   ],
@@ -120,7 +126,7 @@ class SeasonScreen extends StatelessWidget {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text('or  ', style: body(15, weight: 800, color: AppColors.greyDark)),
+                                    Text('${l.or}  ', style: body(15, weight: 800, color: AppColors.greyDark)),
                                     const BuyButton(product: seasonPassProduct, fontSize: 18),
                                   ],
                                 ),
@@ -137,9 +143,9 @@ class SeasonScreen extends StatelessWidget {
                   child: Row(
                     children: [
                       const SizedBox(width: 44),
-                      Expanded(child: Center(child: Text('FREE', style: display(18, color: AppColors.greenDark, shadow: false)))),
+                      Expanded(child: Center(child: Text(l.trackFree, style: display(18, color: AppColors.greenDark, shadow: false)))),
                       const SizedBox(width: 10),
-                      Expanded(child: Center(child: Text('PREMIUM', style: display(18, color: _purple, shadow: false)))),
+                      Expanded(child: Center(child: Text(l.trackPremium, style: display(18, color: _purple, shadow: false)))),
                     ],
                   ),
                 ),
@@ -209,7 +215,7 @@ class _RewardTile extends StatelessWidget {
           ),
           FittedBox(
             child: Text(
-              isSkin ? skinById(item).name : cosmeticById(item).name,
+              context.l.anyItemName(item),
               style: body(13, weight: 800),
             ),
           ),

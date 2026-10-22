@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
   flame: ^1.38.2
   # Pure-Dart Box2D port, vendored with a revolute-joint fix. See
   # third_party/forge2d/PATCHES.md.
@@ -33,6 +36,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true
   assets:
     - assets/config/
     - assets/levels/
@@ -45,3 +49,12 @@ flutter:
     - family: Fredoka
       fonts:
         - asset: assets/fonts/Fredoka.ttf
+    # Greek and Cyrillic letters, which Lilita One and Fredoka don't have
+    # (subset of M PLUS Rounded 1c). Other scripts fall back to the system.
+    # One weight per family so nothing gets synthetic bold.
+    - family: MPLUSRounded
+      fonts:
+        - asset: assets/fonts/MPLUSRounded1c-Bold.ttf
+    - family: MPLUSRoundedBlack
+      fonts:
+        - asset: assets/fonts/MPLUSRounded1c-Black.ttf

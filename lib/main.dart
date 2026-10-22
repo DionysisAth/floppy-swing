@@ -7,6 +7,7 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/services.dart';
 
 import 'app.dart';
+import 'l10n/l10n.dart';
 import 'services/ads_service.dart';
 import 'services/analytics.dart';
 import 'services/audio_service.dart';
@@ -44,7 +45,9 @@ Future<void> main() async {
       : NoPurchaseService(progress, instant: kDebugMode);
   unawaited(purchases.init().catchError((Object e) => debugPrint('Store init failed: $e')));
 
-  final reminders = ReminderService.supported ? ReminderService(progress) : null;
+  final reminders = ReminderService.supported
+      ? ReminderService(progress, strings: stringsFor(progress.language))
+      : null;
   unawaited(reminders?.init().catchError((Object e) => debugPrint('Reminders init failed: $e')));
 
   // Listen early so the link that launched the app isn't missed.

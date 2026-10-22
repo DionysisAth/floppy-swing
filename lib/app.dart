@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'game/config.dart';
 import 'game/level.dart';
+import 'l10n/l10n.dart';
 import 'services/ads_service.dart';
 import 'services/analytics.dart';
 import 'services/audio_service.dart';
@@ -99,13 +100,58 @@ class FloppySwingApp extends StatelessWidget {
   final AppServices Function(Widget child) services;
 
   @override
-  Widget build(BuildContext context) => services(
-    MaterialApp(
-      title: 'Floppy Swing',
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
-      home: const MenuScreen(),
-    ),
+  Widget build(BuildContext context) => services(const _LocalizedApp());
+}
+
+/// The app in the player's language: the phone's, unless one was picked in
+/// Settings. Rebuilds only when that choice changes.
+class _LocalizedApp extends StatefulWidget {
+  const _LocalizedApp();
+
+  @override
+  State<_LocalizedApp> createState() => _LocalizedAppState();
+}
+
+class _LocalizedAppState extends State<_LocalizedApp> {
+  final _theme = buildTheme();
+  ProgressStore? _progress;
+  String? _language;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final progress = AppServices.of(context).progress;
+    if (progress != _progress) {
+      _progress?.removeListener(_onProgress);
+      _progress = progress..addListener(_onProgress);
+      _language = progress.language;
+    }
+  }
+
+  void _onProgress() {
+    if (_progress!.language != _language) setState(() => _language = _progress!.language);
+  }
+
+  @override
+  void dispose() {
+    _progress?.removeListener(_onProgress);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    onGenerateTitle: (_) => 'Floppy Swing',
+    debugShowCheckedModeBanner: false,
+    theme: _theme,
+    locale: _language == null ? null : Locale(_language!),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: appLocales,
+    // Notifications are written ahead of time, so they need the language too.
+    builder: (context, child) {
+      AppServices.of(context).reminders?.useStrings(AppLocalizations.of(context));
+      return child!;
+    },
+    home: const MenuScreen(),
   );
 }
 

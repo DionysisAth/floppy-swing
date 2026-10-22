@@ -5,6 +5,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../l10n/l10n.dart';
 import '../services/links.dart';
 import '../game/autopilot.dart';
 import '../game/floppy_game.dart';
@@ -41,6 +42,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _demo?.renderer.words = context.l.gameWords;
     if (_demo != null) return;
     final services = AppServices.of(context);
     // Attract mode: the autopilot plays level 1 behind the menu, silently.
@@ -53,6 +55,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
           )
           ..autopilot = Autopilot(const AutopilotParams(releaseAngle: 0.35, regrabDelay: 0.15, minFallSpeed: -2))
           ..addListener(_onDemo);
+    _demo!.renderer.words = context.l.gameWords;
     _game = FloppyGame(_demo!, dim: 0.2);
     // A challenge link opens the friend's Endless course from anywhere.
     _links = services.challenges?.listen((seed) {
@@ -70,8 +73,9 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
   Future<void> _openGames(Future<bool> Function(GamesService games) open) async {
     final games = AppServices.of(context).games;
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l;
     if (!await open(games)) {
-      messenger.showSnackBar(SnackBar(content: Text("Couldn't sign in to ${games.serviceName}.")));
+      messenger.showSnackBar(SnackBar(content: Text(l.couldNotSignIn(games.serviceName))));
     }
   }
 
@@ -117,6 +121,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final services = AppServices.of(context);
+    final l = context.l;
     return Scaffold(
       body: Stack(
         children: [
@@ -134,7 +139,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                       children: [
                         RoundButton(
                           icon: Icons.settings_rounded,
-                          tooltip: 'Settings',
+                          tooltip: l.settings,
                           onPressed: () => _open(const SettingsScreen()),
                           color: AppColors.grey,
                           shade: AppColors.greyDark,
@@ -163,7 +168,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                         if (services.games.available) ...[
                           _social(
                             Icons.emoji_events_rounded,
-                            'Leaderboards',
+                            l.leaderboards,
                             AppColors.orange,
                             AppColors.orangeDark,
                             () => _openGames((g) => g.showLeaderboard()),
@@ -171,7 +176,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                           const SizedBox(width: 8),
                           _social(
                             Icons.military_tech_rounded,
-                            'Achievements',
+                            l.achievements,
                             AppColors.blue,
                             AppColors.blueDark,
                             () => _openGames((g) => g.showAchievements()),
@@ -180,7 +185,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                         ],
                         _social(
                           Icons.sports_kabaddi_rounded,
-                          'Challenge code',
+                          l.challengeCode,
                           AppColors.green,
                           AppColors.greenDark,
                           _enterChallenge,
@@ -212,7 +217,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                     const Spacer(flex: 3),
                     ChunkyButton(
                       onPressed: () => _open(const LevelSelectScreen()),
-                      label: 'PLAY',
+                      label: l.play,
                       icon: Icons.play_arrow_rounded,
                       fontSize: 40,
                       padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 16),
@@ -229,10 +234,10 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                             onPressed: () =>
                                 _open(GameScreen.endless(seed: DateTime.now().microsecondsSinceEpoch & 0x7fffffff)),
                             icon: Icons.all_inclusive_rounded,
-                            label: 'ENDLESS',
+                            label: l.endless,
                             sub: services.progress.endlessBestDistance > 0
-                                ? 'Best ${services.progress.endlessBestDistance} m'
-                                : 'How far can you go?',
+                                ? l.endlessBest(services.progress.endlessBestDistance)
+                                : l.endlessPitch,
                             color: AppColors.blue,
                             shade: AppColors.blueDark,
                           ),
@@ -246,8 +251,8 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                           child: _ModeButton(
                             onPressed: () => _open(const ShopScreen()),
                             icon: Icons.checkroom_rounded,
-                            label: 'SHOP',
-                            sub: 'Skins, ropes & more',
+                            label: l.shop,
+                            sub: l.shopPitch,
                             color: AppColors.pink,
                             shade: const Color(0xFFC02E63),
                           ),
@@ -257,8 +262,8 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                           child: _ModeButton(
                             onPressed: () => _open(const SeasonScreen()),
                             icon: Icons.workspace_premium_rounded,
-                            label: 'PASS',
-                            sub: 'Tier ${services.progress.seasonTier}/${Season.tiers}',
+                            label: l.pass,
+                            sub: l.passTier(services.progress.seasonTier, Season.tiers),
                             color: const Color(0xFF8F6BC7),
                             shade: const Color(0xFF5F3F99),
                             badge: services.progress.seasonRewardsReady > 0,
@@ -284,11 +289,12 @@ extension on _MenuScreenState {
     final day = progress.today;
     final done = progress.dailyRecord(day).completed;
     final streak = progress.currentDailyStreak;
+    final l = context.l;
     return _ModeButton(
       onPressed: services.dailies.isEmpty ? null : () => _open(GameScreen.daily(day: day)),
       icon: Icons.today_rounded,
-      label: 'DAILY',
-      sub: done ? 'Done! 🔥 $streak' : (streak > 0 ? 'Keep your 🔥 $streak' : 'New challenge!'),
+      label: l.daily,
+      sub: done ? l.dailyDone(streak) : (streak > 0 ? l.dailyKeepStreak(streak) : l.dailyNew),
       color: AppColors.orange,
       shade: AppColors.orangeDark,
       badge: !done,
@@ -411,17 +417,17 @@ class _ChallengeCodeDialogState extends State<ChallengeCodeDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Challenge code'),
+    title: Text(context.l.challengeCode),
     content: TextField(
       controller: _code,
       autofocus: true,
-      decoration: const InputDecoration(hintText: 'Code or link from a friend'),
+      decoration: InputDecoration(hintText: context.l.challengeCodeHint),
       style: display(24, color: AppColors.ink, shadow: false),
       onSubmitted: (_) => _play(),
     ),
     actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-      TextButton(onPressed: _play, child: const Text('Play Endless')),
+      TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l.cancel)),
+      TextButton(onPressed: _play, child: Text(context.l.playEndless)),
     ],
   );
 }

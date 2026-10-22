@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../l10n/l10n.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -10,6 +11,7 @@ Future<void> showLoginReward(BuildContext context) async {
   final progress = services.progress;
   if (!progress.loginRewardReady) return;
   final day = progress.nextLoginDay;
+  final l = context.l;
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -21,8 +23,8 @@ Future<void> showLoginReward(BuildContext context) async {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('DAILY BONUS', style: display(34, color: AppColors.orange)),
-            Text('Come back every day for bigger rewards!', textAlign: TextAlign.center, style: body(15, weight: 600)),
+            Text(l.dailyBonus, textAlign: TextAlign.center, style: display(34, color: AppColors.orange)),
+            Text(l.dailyBonusPitch, textAlign: TextAlign.center, style: body(15, weight: 600)),
             const SizedBox(height: 14),
             Wrap(
               alignment: WrapAlignment.center,
@@ -40,7 +42,7 @@ Future<void> showLoginReward(BuildContext context) async {
                 services.audio.play('buy.wav');
                 Navigator.of(context).pop();
               },
-              label: 'Claim',
+              label: l.claim,
               icon: Icons.redeem_rounded,
               color: AppColors.green,
               shade: AppColors.greenDark,
@@ -70,7 +72,7 @@ class _DayTile extends StatelessWidget {
     ),
     child: Column(
       children: [
-        FittedBox(child: Text('Day $day', style: body(13, weight: 800))),
+        FittedBox(child: Text(context.l.dayNumber(day), style: body(13, weight: 800))),
         const SizedBox(height: 4),
         if (past)
           const Icon(Icons.check_circle_rounded, color: AppColors.greenDark, size: 30)

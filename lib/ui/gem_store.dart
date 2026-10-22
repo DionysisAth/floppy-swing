@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
-import '../game/cosmetics.dart';
+import '../l10n/l10n.dart';
 import '../game/store_products.dart';
 import '../services/purchase_service.dart';
 import 'theme.dart';
@@ -45,13 +45,21 @@ class _PurchaseMessagesState extends State<PurchaseMessages> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(message, style: body(15, color: Colors.white, weight: 700)),
+            content: Text(_text(context.l, message), style: body(15, color: Colors.white, weight: 700)),
           ),
         );
       AppServices.of(context).audio.play('buy.wav');
     }
     setState(() {});
   }
+
+  static String _text(AppLocalizations l, PurchaseMessage m) => switch (m.notice) {
+    PurchaseNotice.thanks => l.purchaseThanks(m.product == null ? '' : l.productName(m.product!)),
+    PurchaseNotice.busy => l.storeBusy,
+    PurchaseNotice.restored => l.purchasesRestored,
+    PurchaseNotice.unreachable => l.storeUnreachable,
+    PurchaseNotice.failed => l.purchaseFailed,
+  };
 
   @override
   Widget build(BuildContext context) => widget.child;
@@ -80,7 +88,7 @@ class GemStore extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   color: const Color(0xFFFFF4C9),
                   child: Text(
-                    "The store can't be reached right now. Check your connection and try again later.",
+                    context.l.storeUnavailable,
                     textAlign: TextAlign.center,
                     style: body(14, weight: 700),
                   ),
@@ -105,7 +113,7 @@ class GemStore extends StatelessWidget {
             Center(
               child: TextButton(
                 onPressed: store.available ? store.restore : null,
-                child: Text('Restore purchases', style: body(15, weight: 800, color: AppColors.greyDark)),
+                child: Text(context.l.restorePurchases, style: body(15, weight: 800, color: AppColors.greyDark)),
               ),
             ),
             if (store.busy)
@@ -176,8 +184,8 @@ class _OfferCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(product.name, style: display(24, color: AppColors.ink, shadow: false)),
-                  Text(product.tagline, style: body(13, color: AppColors.greyDark)),
+                  Text(context.l.productName(product), style: display(24, color: AppColors.ink, shadow: false)),
+                  Text(context.l.productTagline(product), style: body(13, color: AppColors.greyDark)),
                 ],
               ),
             ),
@@ -195,7 +203,7 @@ class _OfferCard extends StatelessWidget {
                   if (product.gems > 0) GemBadge(gems: product.gems),
                   if (product.coins > 0) CoinBadge(coins: product.coins),
                   for (final id in product.items)
-                    Text('+ ${cosmeticById(id).name}', style: body(14, weight: 800, color: AppColors.ink)),
+                    Text(context.l.plusItem(context.l.anyItemName(id)), style: body(14, weight: 800, color: AppColors.ink)),
                 ],
               ),
             ),
@@ -220,7 +228,7 @@ class _GemPackCard extends StatelessWidget {
     child: Column(
       children: [
         if (product.bestValue)
-          Text('BEST VALUE', style: display(14, color: AppColors.pink, shadow: false))
+          Text(context.l.bestValue, style: display(14, color: AppColors.pink, shadow: false))
         else
           const SizedBox(height: 17),
         Expanded(
@@ -235,9 +243,12 @@ class _GemPackCard extends StatelessWidget {
           ),
         ),
         FittedBox(
-          child: Text(product.name, style: display(18, color: AppColors.ink, shadow: false)),
+          child: Text(context.l.productName(product), style: display(18, color: AppColors.ink, shadow: false)),
         ),
-        Text(product.tagline, maxLines: 1, style: body(11, color: AppColors.greyDark)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(context.l.productTagline(product), maxLines: 1, style: body(11, color: AppColors.greyDark)),
+        ),
         const SizedBox(height: 6),
         BuyButton(product: product),
       ],

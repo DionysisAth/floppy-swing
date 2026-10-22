@@ -1,0 +1,849 @@
+{
+  "@@locale": "en",
+  "back": "Back",
+  "cancel": "Cancel",
+  "settings": "Settings",
+  "leaderboards": "Leaderboards",
+  "leaderboard": "Leaderboard",
+  "achievements": "Achievements",
+  "challengeCode": "Challenge code",
+  "couldNotSignIn": "Couldn't sign in to {service}.",
+  "@couldNotSignIn": {
+    "description": "service: \"Google Play Games\" or \"Game Center\"",
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "play": "PLAY",
+  "@play": {
+    "description": "Big main menu button"
+  },
+  "endless": "ENDLESS",
+  "@endless": {
+    "description": "Endless mode button and HUD title"
+  },
+  "endlessBest": "Best {distance} m",
+  "@endlessBest": {
+    "description": "Best Endless distance in metres",
+    "placeholders": {
+      "distance": {
+        "type": "int"
+      }
+    }
+  },
+  "endlessPitch": "How far can you go?",
+  "shop": "SHOP",
+  "shopPitch": "Skins, ropes & more",
+  "pass": "PASS",
+  "@pass": {
+    "description": "Short for Season Pass, menu button"
+  },
+  "passTier": "Tier {tier}/{total}",
+  "@passTier": {
+    "placeholders": {
+      "tier": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "daily": "DAILY",
+  "@daily": {
+    "description": "Daily Challenge menu button"
+  },
+  "dailyDone": "Done! 🔥 {streak}",
+  "@dailyDone": {
+    "description": "streak = days in a row",
+    "placeholders": {
+      "streak": {
+        "type": "int"
+      }
+    }
+  },
+  "dailyKeepStreak": "Keep your 🔥 {streak}",
+  "@dailyKeepStreak": {
+    "placeholders": {
+      "streak": {
+        "type": "int"
+      }
+    }
+  },
+  "dailyNew": "New challenge!",
+  "challengeCodeHint": "Code or link from a friend",
+  "playEndless": "Play Endless",
+  "settingsTitle": "SETTINGS",
+  "music": "Music",
+  "soundEffects": "Sound effects",
+  "muteAll": "Mute everything",
+  "vibration": "Vibration",
+  "dailyReminders": "Daily Challenge reminders",
+  "language": "Language",
+  "languageAuto": "Phone language",
+  "@languageAuto": {
+    "description": "Language option that follows the phone settings"
+  },
+  "privacyOptions": "Privacy options",
+  "resetProgress": "Reset progress",
+  "fonts": "Fonts",
+  "gamesNotSetUp": "Leaderboards, achievements and cloud save come with {service}. Not set up in this build yet.",
+  "@gamesNotSetUp": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "gamesSignedIn": "Signed in. Progress is backed up to your {service} account.",
+  "@gamesSignedIn": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "gamesSignedInAs": "Signed in as {name}. Progress is backed up to your {service} account.",
+  "@gamesSignedInAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "gamesSignInPitch": "Sign in to back up your progress and join the leaderboards.",
+  "signIn": "Sign in",
+  "resetTitle": "Reset progress?",
+  "resetBody": "This wipes your stars, coins and skins. It cannot be undone.",
+  "reset": "Reset",
+  "clipFailed": "Could not make the clip: {error}",
+  "@clipFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeShare": "I swung {distance} m in Floppy Swing Endless. Can you beat me? {link}\n(Or tap \"Challenge code\" in the menu and enter {code}.)",
+  "@challengeShare": {
+    "placeholders": {
+      "distance": {
+        "type": "int"
+      },
+      "link": {
+        "type": "String"
+      },
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "hintRevived": "Revived! Hold to swing.",
+  "hintHold": "Hold anywhere to swing!",
+  "failSpikes1": "Pointy end first.",
+  "failSpikes2": "That's gonna leave a mark.",
+  "failSpikes3": "Spike: 1, You: 0",
+  "failSaw1": "Sliced and diced!",
+  "failSaw2": "Saw that coming?",
+  "failSaw3": "Bzzzzt!",
+  "failPit1": "Gravity wins again.",
+  "failPit2": "Down you go!",
+  "failPit3": "The floor is spiky.",
+  "failStuck1": "Nap time?",
+  "failStuck2": "Stuck like glue.",
+  "failStuck3": "Taking a breather?",
+  "tapToRetry": "Tap anywhere to retry",
+  "shareFail": "Share fail",
+  "challengeFriend": "Challenge a friend",
+  "newCourse": "New course",
+  "skipLevel": "Skip level",
+  "revive": "Revive",
+  "rankWorldwide": "#{rank} worldwide",
+  "@rankWorldwide": {
+    "placeholders": {
+      "rank": {
+        "type": "int"
+      }
+    }
+  },
+  "newBest": "NEW BEST!",
+  "meters": "{distance} m",
+  "@meters": {
+    "placeholders": {
+      "distance": {
+        "type": "int"
+      }
+    }
+  },
+  "endlessScore": "Score {score}  ·  Best {best}",
+  "@endlessScore": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      },
+      "best": {
+        "type": "int"
+      }
+    }
+  },
+  "newBestToday": "New best time today!",
+  "rankToday": "#{rank} today",
+  "@rankToday": {
+    "placeholders": {
+      "rank": {
+        "type": "int"
+      }
+    }
+  },
+  "dayStreak": "{count, plural, =1{🔥 {count} day streak} other{🔥 {count} day streak}}",
+  "@dayStreak": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dayStreakBonus": "{count, plural, =1{🔥 {count} day streak - bonus gems!} other{🔥 {count} day streak - bonus gems!}}",
+  "@dayStreakBonus": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dailyClear": "DAILY CLEAR!",
+  "worldClear": "WORLD CLEAR!",
+  "levelClear": "LEVEL CLEAR!",
+  "statTime": "Time",
+  "statTarget": "target {time}s",
+  "@statTarget": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "statCoins": "Coins",
+  "statStyle": "Style",
+  "statBest": "Best",
+  "starFinish": "Finish",
+  "@starFinish": {
+    "description": "Label under the first star (reached the finish)"
+  },
+  "newStars": "{count, plural, =1{(+{count} star)} other{(+{count} stars)}}",
+  "@newStars": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "worldGate": "{count, plural, =1{Collect {count} more star to open {world}!} other{Collect {count} more stars to open {world}!}}",
+  "@worldGate": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "world": {
+        "type": "String"
+      }
+    }
+  },
+  "doubleCoins": "Double coins",
+  "retry": "Retry",
+  "share": "Share",
+  "next": "Next",
+  "done": "Done",
+  "levels": "Levels",
+  "quit": "Quit",
+  "paused": "PAUSED",
+  "resume": "Resume",
+  "restart": "Restart",
+  "pause": "Pause",
+  "zoneBanner": "ZONE {number}: {name}",
+  "@zoneBanner": {
+    "description": "Endless zone banner, name is the world name in capitals",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "hudDaily": "DAILY: {name}",
+  "@hudDaily": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "hudStyle": "STYLE {score}",
+  "@hudStyle": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "slowMoReplay": "SLOW-MO REPLAY",
+  "makingClip": "Making your clip…",
+  "worldNumber": "WORLD {number}",
+  "@worldNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "previousWorld": "Previous world",
+  "nextWorld": "Next world",
+  "collectMore": "{count, plural, =1{Collect {count} more} other{Collect {count} more}}",
+  "@collectMore": {
+    "description": "Followed by a star icon",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "starsOf": "{have}/{need} stars",
+  "@starsOf": {
+    "placeholders": {
+      "have": {
+        "type": "int"
+      },
+      "need": {
+        "type": "int"
+      }
+    }
+  },
+  "levelTile": "Level {number}, {name}",
+  "@levelTile": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "levelTileLocked": "Level {number}, {name}, locked",
+  "@levelTileLocked": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dailyBonus": "DAILY BONUS",
+  "dailyBonusPitch": "Come back every day for bigger rewards!",
+  "claim": "Claim",
+  "dayNumber": "Day {day}",
+  "@dayNumber": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "seasonPassTitle": "SEASON PASS",
+  "seasonPass": "Season Pass",
+  "tierNumber": "Tier {tier}",
+  "@tierNumber": {
+    "placeholders": {
+      "tier": {
+        "type": "int"
+      }
+    }
+  },
+  "daysLeft": "{count, plural, =1{{count} day left} other{{count} days left}}",
+  "@daysLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "seasonComplete": "Season complete!",
+  "seasonXp": "{xp} / {perTier} XP  ·  Earn XP by finishing levels, dailies and Endless runs",
+  "@seasonXp": {
+    "placeholders": {
+      "xp": {
+        "type": "int"
+      },
+      "perTier": {
+        "type": "int"
+      }
+    }
+  },
+  "unlockPremium": "Unlock Premium",
+  "or": "or",
+  "trackFree": "FREE",
+  "trackPremium": "PREMIUM",
+  "tabSkins": "Skins",
+  "tabRopes": "Ropes",
+  "tabTrails": "Trails",
+  "tabFails": "Fails",
+  "tabDances": "Dances",
+  "tabSets": "Sets",
+  "tabGems": "Gems",
+  "equipped": "EQUIPPED",
+  "use": "Use",
+  "storeUnavailable": "The store can't be reached right now. Check your connection and try again later.",
+  "restorePurchases": "Restore purchases",
+  "bestValue": "BEST VALUE",
+  "plusItem": "+ {item}",
+  "@plusItem": {
+    "placeholders": {
+      "item": {
+        "type": "String"
+      }
+    }
+  },
+  "purchaseThanks": "Thanks! {product} unlocked.",
+  "@purchaseThanks": {
+    "placeholders": {
+      "product": {
+        "type": "String"
+      }
+    }
+  },
+  "storeBusy": "The store is busy. Please try again.",
+  "purchasesRestored": "Purchases restored.",
+  "storeUnreachable": "Couldn't reach the store.",
+  "purchaseFailed": "Purchase failed. You have not been charged.",
+  "reminderStreakTitle": "{count, plural, =1{Keep your {count}-day streak!} other{Keep your {count}-day streak!}}",
+  "@reminderStreakTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reminderStreakBody": "Clear today's Daily Challenge before midnight.",
+  "reminderTodayTitle": "Today's Daily Challenge is waiting",
+  "reminderTodayBody": "A new level every day. Go get those stars!",
+  "reminderFreshTitle": "A fresh Daily Challenge is here",
+  "reminderFreshBody": "New level, new ghost to beat. Can you get all 3 stars?",
+  "reminderRestlessTitle": "Floppy is getting restless",
+  "reminderRestlessBody": "Today's Daily Challenge won't swing itself.",
+  "reminderTimeTitle": "Daily Challenge time!",
+  "reminderTimeBody": "One quick swing? Clear it to keep your streak going.",
+  "reminderChannelDescription": "A nudge when a new Daily Challenge is out.",
+  "shareTagline": "Can you do better?",
+  "shareCta": "Floppy Swing - free on iOS & Android",
+  "clipCleared": "Level {level} cleared!",
+  "@clipCleared": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "clipTime": "Level {level} in {time}s",
+  "@clipTime": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "clipSaw": "Met a saw on level {level}",
+  "@clipSaw": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "clipSpikes": "Found the spikes on level {level}",
+  "@clipSpikes": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "clipPit": "Missed everything on level {level}",
+  "@clipPit": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "clipStuck": "Took a nap on level {level}",
+  "@clipStuck": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "clipLevel": "Level {level}",
+  "@clipLevel": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "wordBest": "BEST",
+  "@wordBest": {
+    "description": "Flag at the best Endless distance"
+  },
+  "wordCheckpoint": "CHECKPOINT!",
+  "wordGo": "GO!",
+  "wordSmash": "SMASH!",
+  "@wordSmash": {
+    "description": "Glass breaking"
+  },
+  "wordKaboom": "KABOOM!",
+  "wordBonk": "BONK!",
+  "wordSaw": "ZZZING!",
+  "@wordSaw": {
+    "description": "Hit a saw"
+  },
+  "wordSpikes": "OUCH!",
+  "@wordSpikes": {
+    "description": "Hit spikes"
+  },
+  "wordPit": "YEOWCH!",
+  "@wordPit": {
+    "description": "Fell down"
+  },
+  "wordStuck": "ZZZ...",
+  "@wordStuck": {
+    "description": "Fell asleep / stuck"
+  },
+  "wordConfetti": "WHEEE!",
+  "wordJackpot": "JACKPOT!",
+  "wordSqueak": "SQUEAK!",
+  "styleBigSwing": "BIG SWING",
+  "@styleBigSwing": {
+    "description": "Style trick: swung all the way round"
+  },
+  "styleSmash": "SMASH",
+  "@styleSmash": {
+    "description": "Style trick: broke glass"
+  },
+  "styleFlip": "FLIP",
+  "@styleFlip": {
+    "description": "Style trick: somersault"
+  },
+  "styleHangTime": "HANG TIME",
+  "@styleHangTime": {
+    "description": "Style trick: long time in the air"
+  },
+  "styleCloseCall": "CLOSE CALL",
+  "@styleCloseCall": {
+    "description": "Style trick: near miss with a hazard"
+  },
+  "world1Name": "Playground",
+  "world1Tagline": "Hold. Swing. Let go. Scream.",
+  "world2Name": "Factory",
+  "world2Tagline": "Rings on rails and hungry saws.",
+  "world3Name": "Glass City",
+  "world3Tagline": "Smash through. Bounce off.",
+  "world4Name": "Sky Islands",
+  "world4Tagline": "Ride the wind. Fall upwards.",
+  "world5Name": "Rocket Base",
+  "world5Tagline": "Floors crumble. Rockets fly.",
+  "skinFloppyName": "Floppy",
+  "@skinFloppyName": {
+    "description": "Character skin name"
+  },
+  "skinFloppyTagline": "The original noodle.",
+  "skinBananaName": "Banana",
+  "@skinBananaName": {
+    "description": "Character skin name"
+  },
+  "skinBananaTagline": "Slippery when swung.",
+  "skinKnightName": "Sir Flops",
+  "@skinKnightName": {
+    "description": "Character skin name"
+  },
+  "skinKnightTagline": "Heavy armour. Zero grace.",
+  "skinAstronautName": "Space Cadet",
+  "@skinAstronautName": {
+    "description": "Character skin name"
+  },
+  "skinAstronautTagline": "Gravity is just a suggestion.",
+  "skinChickenName": "Rubber Chicken",
+  "@skinChickenName": {
+    "description": "Character skin name"
+  },
+  "skinChickenTagline": "Squeaks on impact. Obviously.",
+  "skinNinjaName": "Noodle Ninja",
+  "@skinNinjaName": {
+    "description": "Character skin name"
+  },
+  "skinNinjaTagline": "Silent. Deadly. Mostly silent.",
+  "skinPirateName": "Captain Flop",
+  "@skinPirateName": {
+    "description": "Character skin name"
+  },
+  "skinPirateTagline": "Yo ho, oh no.",
+  "skinRobotName": "Robo-Noodle",
+  "@skinRobotName": {
+    "description": "Character skin name"
+  },
+  "skinRobotTagline": "Beep. Boop. Bonk.",
+  "skinDinoName": "Dino-Mite",
+  "@skinDinoName": {
+    "description": "Character skin name"
+  },
+  "skinDinoTagline": "Tiny arms. Big swings.",
+  "skinWizardName": "Flopdalf",
+  "@skinWizardName": {
+    "description": "Character skin name"
+  },
+  "skinWizardTagline": "You shall not... oops.",
+  "skinGoldenName": "Golden Flop",
+  "@skinGoldenName": {
+    "description": "Character skin name"
+  },
+  "skinGoldenTagline": "Collect all 300 stars.",
+  "itemRopeName": "Trusty Rope",
+  "@itemRopeName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemRopeTagline": "Hemp. Reliable. Beige.",
+  "itemChainName": "Chain",
+  "@itemChainName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemChainTagline": "Clink clink clink.",
+  "itemSpaghettiName": "Spaghetti",
+  "@itemSpaghettiName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemSpaghettiTagline": "Al dente. Mostly.",
+  "itemRainbowName": "Rainbow",
+  "@itemRainbowName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemRainbowTagline": "Taste the swing.",
+  "itemLaserName": "Laser",
+  "@itemLaserName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemLaserTagline": "Pew pew grapple.",
+  "itemSwooshName": "Swoosh",
+  "@itemSwooshName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemSwooshTagline": "The classic whoosh.",
+  "itemSparklesName": "Sparkles",
+  "@itemSparklesName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemSparklesTagline": "Fabulous at any speed.",
+  "itemBubblesName": "Bubbles",
+  "@itemBubblesName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemBubblesTagline": "Blub blub.",
+  "itemFireName": "Fire",
+  "@itemFireName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemFireTagline": "Too hot to handle.",
+  "itemGoldName": "Doubloons",
+  "@itemGoldName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemGoldTagline": "Pirate Plunder season.",
+  "itemCircuitName": "Circuit",
+  "@itemCircuitName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemCircuitTagline": "Robo Rumble season.",
+  "itemLeavesName": "Jungle Leaves",
+  "@itemLeavesName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemLeavesTagline": "Dino Days season.",
+  "itemStarsName": "Stardust",
+  "@itemStarsName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemStarsTagline": "Wizard Weeks season.",
+  "itemClassicName": "Kapow",
+  "@itemClassicName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemClassicTagline": "Stars. Lots of stars.",
+  "itemSqueakyName": "Squeaky Toy",
+  "@itemSqueakyName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemSqueakyTagline": "SQUEEEEAK.",
+  "itemConfettiName": "Confetti Party",
+  "@itemConfettiName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemConfettiTagline": "Failing is a celebration.",
+  "itemCoinpileName": "Jackpot",
+  "@itemCoinpileName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemCoinpileTagline": "Burst into a pile of coins.",
+  "itemHopName": "Happy Hop",
+  "@itemHopName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemHopTagline": "Boing boing boing.",
+  "itemBackflipName": "Backflip",
+  "@itemBackflipName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemBackflipTagline": "Sticks the landing. Sometimes.",
+  "itemSpinName": "Tornado",
+  "@itemSpinName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemSpinTagline": "Wheeeeee!",
+  "itemFlailName": "Wacky Flail",
+  "@itemFlailName": {
+    "description": "Rope, trail, fail effect or dance name"
+  },
+  "itemFlailTagline": "Inflatable tube man energy.",
+  "setFoodName": "Food Fight",
+  "@setFoodName": {
+    "description": "Collection of shop items"
+  },
+  "setHeroesName": "Brave Heroes",
+  "@setHeroesName": {
+    "description": "Collection of shop items"
+  },
+  "setRopesName": "Rope Collector",
+  "@setRopesName": {
+    "description": "Collection of shop items"
+  },
+  "setTrailsName": "Trailblazer",
+  "@setTrailsName": {
+    "description": "Collection of shop items"
+  },
+  "setFailsName": "Epic Fails",
+  "@setFailsName": {
+    "description": "Collection of shop items"
+  },
+  "setDancesName": "Dance Floor",
+  "@setDancesName": {
+    "description": "Collection of shop items"
+  },
+  "seasonPirateName": "Pirate Plunder",
+  "@seasonPirateName": {
+    "description": "Season Pass theme"
+  },
+  "seasonRobotName": "Robo Rumble",
+  "@seasonRobotName": {
+    "description": "Season Pass theme"
+  },
+  "seasonDinoName": "Dino Days",
+  "@seasonDinoName": {
+    "description": "Season Pass theme"
+  },
+  "seasonWizardName": "Wizard Weeks",
+  "@seasonWizardName": {
+    "description": "Season Pass theme"
+  },
+  "productStarterPackName": "Starter Pack",
+  "productStarterPackTagline": "300 gems, 2,500 coins and the Laser rope. Once only!",
+  "productRemoveAdsName": "No Ads",
+  "productRemoveAdsTagline": "No more ads between levels. Bonus videos stay optional.",
+  "productSeasonPassName": "Premium Pass",
+  "productSeasonPassTagline": "This season's premium track.",
+  "productGemsSmallName": "Handful of Gems",
+  "productGemsSmallTagline": "80 gems",
+  "productGemsMediumName": "Bag of Gems",
+  "productGemsMediumTagline": "450 gems (+12% bonus)",
+  "productGemsLargeName": "Chest of Gems",
+  "productGemsLargeTagline": "1,000 gems (+25% bonus)",
+  "productGemsHugeName": "Vault of Gems",
+  "productGemsHugeTagline": "2,200 gems (+37% bonus)",
+  "hintLevel1": "Hold anywhere to grab the glowing ring. Let go to fly!",
+  "@hintLevel1": {
+    "description": "Tutorial hint on level 1"
+  },
+  "hintLevel2": "Let go on the up-swing to fly further.",
+  "@hintLevel2": {
+    "description": "Tutorial hint on level 2"
+  },
+  "hintLevel3": "Red means ouch. Don't touch the spikes!",
+  "@hintLevel3": {
+    "description": "Tutorial hint on level 3"
+  },
+  "hintLevel5": "Spikes above too. Don't fly too high!",
+  "@hintLevel5": {
+    "description": "Tutorial hint on level 5"
+  },
+  "hintLevel6": "Green pads bounce you up. Use them to cross big gaps.",
+  "@hintLevel6": {
+    "description": "Tutorial hint on level 6"
+  },
+  "hintLevel7": "Saws spin. Saws hurt. Swing around them.",
+  "@hintLevel7": {
+    "description": "Tutorial hint on level 7"
+  },
+  "hintLevel8": "Flags are checkpoints. Revive there if you fall.",
+  "@hintLevel8": {
+    "description": "Tutorial hint on level 8"
+  },
+  "hintLevel9": "Some saws move. Watch the rhythm.",
+  "@hintLevel9": {
+    "description": "Tutorial hint on level 9"
+  },
+  "hintLevel12": "Swing high and let go to climb.",
+  "@hintLevel12": {
+    "description": "Tutorial hint on level 12"
+  },
+  "hintLevel14": "What goes up... mostly comes down.",
+  "@hintLevel14": {
+    "description": "Tutorial hint on level 14"
+  },
+  "hintLevel15": "Everything at once. Good luck!",
+  "@hintLevel15": {
+    "description": "Tutorial hint on level 15"
+  },
+  "hintLevel21": "Some rings move. Time your grab!",
+  "@hintLevel21": {
+    "description": "Tutorial hint on level 21"
+  },
+  "hintLevel41": "Glass breaks if you hit it fast enough. Smash through!",
+  "@hintLevel41": {
+    "description": "Tutorial hint on level 41"
+  },
+  "hintLevel61": "Fans blow you upwards. Ride the wind!",
+  "@hintLevel61": {
+    "description": "Tutorial hint on level 61"
+  },
+  "hintLevel64": "Purple zones flip gravity. Up is the new down.",
+  "@hintLevel64": {
+    "description": "Tutorial hint on level 64"
+  },
+  "hintLevel81": "Crumbling platforms fall soon after you land. Keep moving!",
+  "@hintLevel81": {
+    "description": "Tutorial hint on level 81"
+  },
+  "hintLevel84": "Rockets won't kill you... but the spikes will.",
+  "@hintLevel84": {
+    "description": "Tutorial hint on level 84"
+  }
+}

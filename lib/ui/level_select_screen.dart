@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../l10n/l10n.dart';
 import '../game/worlds.dart';
 import '../services/progress.dart';
 import 'game_screen.dart';
@@ -51,6 +52,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
     final services = AppServices.of(context);
     final progress = services.progress;
     final info = WorldInfo.byNumber(_world);
+    final l = context.l;
     return Scaffold(
       body: ListenableBuilder(
         listenable: progress,
@@ -72,7 +74,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                     children: [
                       RoundButton(
                         icon: Icons.arrow_back_rounded,
-                        tooltip: 'Back',
+                        tooltip: l.back,
                         onPressed: () => Navigator.of(context).pop(),
                         size: 22,
                       ),
@@ -81,11 +83,11 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('WORLD $_world', style: display(18, color: AppColors.yellow)),
+                            Text(l.worldNumber(_world), style: display(18, color: AppColors.yellow)),
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
-                              child: Text(info.name, style: display(32)),
+                              child: Text(l.worldName(info), style: display(32)),
                             ),
                           ],
                         ),
@@ -99,7 +101,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(info.tagline, style: body(15, weight: 700, color: Colors.white)),
+                        child: Text(l.worldTagline(info), style: body(15, weight: 700, color: Colors.white)),
                       ),
                       const Icon(Icons.star_rounded, color: AppColors.yellow, size: 22),
                       Text(
@@ -126,7 +128,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                         opacity: _world > 1 ? 1 : 0.35,
                         child: RoundButton(
                           icon: Icons.chevron_left_rounded,
-                          tooltip: 'Previous world',
+                          tooltip: l.previousWorld,
                           onPressed: _world > 1 ? () => _go(_world - 1) : null,
                           size: 26,
                         ),
@@ -151,7 +153,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                         opacity: _world < _worldCount ? 1 : 0.35,
                         child: RoundButton(
                           icon: Icons.chevron_right_rounded,
-                          tooltip: 'Next world',
+                          tooltip: l.nextWorld,
                           onPressed: _world < _worldCount ? () => _go(_world + 1) : null,
                           size: 26,
                         ),
@@ -202,6 +204,7 @@ class _WorldPage extends StatelessWidget {
     );
     if (open) return grid;
     final need = world.starsNeeded - progress.totalStars;
+    final l = context.l;
     return Stack(
       children: [
         Opacity(opacity: 0.35, child: IgnorePointer(child: grid)),
@@ -214,17 +217,17 @@ class _WorldPage extends StatelessWidget {
                 children: [
                   const Icon(Icons.lock_outline_rounded, size: 56, color: AppColors.ink),
                   const SizedBox(height: 8),
-                  Text(world.name, style: display(28, color: AppColors.ink, shadow: false)),
+                  Text(l.worldName(world), textAlign: TextAlign.center, style: display(28, color: AppColors.ink, shadow: false)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Collect $need more ', style: body(18, weight: 800)),
+                      Flexible(child: Text('${l.collectMore(need)} ', style: body(18, weight: 800))),
                       const Icon(Icons.star_rounded, color: AppColors.yellow, size: 26),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text('${progress.totalStars}/${world.starsNeeded} stars', style: body(15, weight: 700)),
+                  Text(l.starsOf(progress.totalStars, world.starsNeeded), style: body(15, weight: 700)),
                 ],
               ),
             ),
@@ -254,7 +257,7 @@ class _LevelTile extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     enabled: unlocked,
-    label: 'Level $number, $name${unlocked ? '' : ', locked'}',
+    label: unlocked ? context.l.levelTile(number, name) : context.l.levelTileLocked(number, name),
     child: ChunkyButton(
       onPressed: onTap,
       color: unlocked ? Colors.white : AppColors.grey,
