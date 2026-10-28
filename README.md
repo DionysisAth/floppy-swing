@@ -92,7 +92,7 @@ lib/
     autopilot.dart    Bot player (level verification + menu demo)
     skins.dart        Skin catalogue
     floppy_game.dart  Thin Flame wrapper
-  services/        Progress/save, audio+haptics, ads (UMP consent), clip export, analytics,
+  services/        Progress/save, audio+haptics, ads (UMP consent), clip export, analytics (+ firebase.dart: Firebase Analytics),
                    games_service + games_ids (Play Games / Game Center),
                    purchase_service (in-app purchases), reminders, links
   ui/              Screens and widgets

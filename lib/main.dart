@@ -9,8 +9,8 @@ import 'package:flutter/services.dart';
 import 'app.dart';
 import 'l10n/l10n.dart';
 import 'services/ads_service.dart';
-import 'services/analytics.dart';
 import 'services/audio_service.dart';
+import 'services/firebase.dart';
 import 'services/games_service.dart';
 import 'services/links.dart';
 import 'services/progress.dart';
@@ -27,7 +27,8 @@ Future<void> main() async {
   final audio = AudioService(progress);
   await audio.init();
 
-  final analytics = const Analytics()..sessionStart();
+  // Firebase Analytics (Android): gameplay events, to spot levels that are too hard.
+  final analytics = (await startAnalytics())..sessionStart();
   // Play Games / Game Center sign-in happens in the background; the game
   // never waits for it.
   final games = GamesService(progress);

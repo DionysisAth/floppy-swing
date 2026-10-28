@@ -47,6 +47,13 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="${admobAppId}"/>
+        <!-- Firebase Analytics is only for gameplay stats (which levels are
+             too hard), never ads: no advertising id, and ad consent signals
+             start denied. -->
+        <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false"/>
+        <meta-data android:name="google_analytics_default_allow_ad_storage" android:value="false"/>
+        <meta-data android:name="google_analytics_default_allow_ad_user_data" android:value="false"/>
+        <meta-data android:name="google_analytics_default_allow_ad_personalization_signals" android:value="false"/>
         <!-- Google Play Games (leaderboards, achievements, cloud save): the
              project id lives in res/values/games-ids.xml. -->
         <meta-data

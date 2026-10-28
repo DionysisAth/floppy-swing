@@ -1,6 +1,6 @@
 # Floppy Swing privacy policy
 
-_Last updated: 30 September 2026._
+_Last updated: 28 October 2026._
 
 Floppy Swing ("the game") is made by Floppy Swing. This policy explains
 what the game collects and why.
@@ -24,6 +24,18 @@ Games** (Android) or **Game Center** (iOS), the game uses them to:
 That data is held by Google or Apple under their policies:
 https://policies.google.com/privacy and https://www.apple.com/legal/privacy/.
 We never see your email or contact details, and we don't sell any data.
+
+## Gameplay statistics (Google Analytics for Firebase)
+
+On Android the game sends anonymous gameplay statistics to **Google
+Analytics for Firebase**, so we can see which levels are too hard: for
+example a level was started, failed (and how) or finished, the time and
+stars, Endless distances, and which shop items or modes are used. Firebase
+also records basic app usage (sessions, app version, device model, OS
+version, country). The data is tied to a random app-instance id, not to your
+name, email or advertising id, and it is never used for ads. See
+https://policies.google.com/privacy and
+https://firebase.google.com/support/privacy.
 
 ## Ads
 
@@ -66,7 +78,8 @@ collect personal information from children.
 
 The game stores nothing on servers of its own. Google and Apple keep
 leaderboard, achievement and saved-game data under their own retention
-policies.
+policies. Google Analytics for Firebase keeps gameplay statistics for up to
+14 months.
 
 ## Changes and contact
 
